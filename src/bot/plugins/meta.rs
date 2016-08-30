@@ -426,16 +426,28 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
-        let text = format!(r#"```xl
+        let mut text = format!(r#"```xl
      Name: {}
        ID: {}
     Topic: {}
      Type: {}
-  Created: {}```"#, channel.name,
-                    channel.id,
-                    channel.topic.as_ref().unwrap_or(&String::new()),
-                    channel.kind.name(),
-                    created_at);
+  Created: {}"#, channel.name,
+                 channel.id,
+                 channel.topic.as_ref().unwrap_or(&String::new()),
+                 channel.kind.name(),
+                 created_at);
+
+        if channel.kind == ChannelType::Voice {
+            let bitrate = (channel.bitrate.unwrap_or(0) / 1024) as u64;
+            let user_limit = channel.user_limit.unwrap_or(0);
+
+            text.push_str(&format!(r#"
+  Bitrate: {}kbps
+User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
+                  channel.user_limit.unwrap_or(0)));
+        }
+
+        text.push_str("```");
 
         let _msg = req!(context.say(text));
     }
