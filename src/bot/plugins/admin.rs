@@ -29,7 +29,7 @@ impl Admin {
         let member_perms = server.permissions_for(context.message.channel_id,
                                                   context.message.author.id);
 
-        if member_perms.contains(permissions::MANAGE_MESSAGES) {
+        if !member_perms.contains(permissions::MANAGE_MESSAGES) {
             let _msg = req!(context.say("You must be allowed to manage messages to be able to use this command"));
 
             return;
