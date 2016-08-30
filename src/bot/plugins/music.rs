@@ -271,16 +271,13 @@ impl Music {
         let add_to_song_completion = {
             let status = state.status.contains_key(&server_id);
 
-            info!("111");
             let mut conn = context.conn.lock().unwrap();
-            info!("222");
             let in_voice = {
                 let voice = conn.voice(Some(server_id));
                 voice.current_channel().is_some()
             };
 
             drop(conn);
-            info!("333");
 
             !status && in_voice
         };
@@ -497,6 +494,8 @@ impl Music {
                     break;
                 }
             }
+
+            state.song_completion.insert(0, vec![server_id]);
         }
     }
 
