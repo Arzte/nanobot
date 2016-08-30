@@ -153,7 +153,11 @@ impl EventCounter {
             Event::ServerSync { .. } => EventType::ServerSync,
             Event::ServerUpdate(_) => EventType::ServerUpdate,
             Event::TypingStart { .. } => EventType::TypingStart,
-            Event::Unknown(_, _) => EventType::Unknown,
+            Event::Unknown(ref name, ref map) => {
+                error!("Unknown event {}: {:?}", name, map);
+
+                EventType::Unknown
+            },
             Event::UserNoteUpdate(_, _) => EventType::UserNoteUpdate,
             Event::UserServerSettingsUpdate(_) => EventType::UserServerSettingsUpdate,
             Event::UserSettingsUpdate { .. } => EventType::UserSettingsUpdate,

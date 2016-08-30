@@ -325,8 +325,8 @@ impl Music {
             },
         };
 
-        let mut text = {
-            let mut temp = String::new();
+        let text = {
+            let mut temp = String::from("```xl");
             let state = self.state.lock().unwrap();
 
             {
@@ -350,10 +350,10 @@ impl Music {
 
             drop(state);
 
+            temp.push_str("```");
+            temp.truncate(2000);
             temp
         };
-
-        text.truncate(2000);
 
         // If there is a key for the server in the queue, but there were no
         // queued requests, then the text will be empty

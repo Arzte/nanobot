@@ -438,9 +438,6 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
                  created_at);
 
         if channel.kind == ChannelType::Voice {
-            let bitrate = (channel.bitrate.unwrap_or(0) / 1024) as u64;
-            let user_limit = channel.user_limit.unwrap_or(0);
-
             text.push_str(&format!(r#"
   Bitrate: {}kbps
 User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
