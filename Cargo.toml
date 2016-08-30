@@ -17,7 +17,7 @@ discord = { git = "https://github.com/SpaceManiac/discord-rs.git" }
 dotenv_macros = { version = "0.9", optional = true }
 dotenv = "0.8"
 env_logger = "0.3"
-forecast_io = "0.1"
+forecast_io = "0.2"
 hummingbird = "0.1"
 hyper = "> 0.8"
 log = "0.3"
