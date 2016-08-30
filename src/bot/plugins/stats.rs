@@ -23,15 +23,11 @@ impl Stats {
             },
         };
 
-        let search_res = {
-            let db = arc!(context.db);
-
-            members_dsl::members
-                .filter(members_dsl::server_id.eq(s.id.0 as i64))
-                .order(members_dsl::message_count.desc())
-                .limit(30)
-                .load(&db)
-        };
+        let search_res = members_dsl::members
+            .filter(members_dsl::server_id.eq(s.id.0 as i64))
+            .order(members_dsl::message_count.desc())
+            .limit(30)
+            .load(context.db);
 
         let member_list: Vec<Member> = match search_res {
             Ok(member_list) => member_list,
@@ -56,13 +52,9 @@ impl Stats {
         let mut rank = 1;
 
         for member in member_list {
-            let user_res = {
-                let db = arc!(context.db);
-
-                users_dsl::users
-                    .filter(users_dsl::id.eq(member.user_id))
-                    .first::<User>(&db)
-            };
+            let user_res = users_dsl::users
+                .filter(users_dsl::id.eq(member.user_id))
+                .first::<User>(context.db);
 
             let user = match user_res {
                 Ok(user) => user,

@@ -73,7 +73,7 @@ impl<'a> Bot<'a> {
     pub fn handle_event(&mut self,
                         event: Event,
                         conn: Arc<Mutex<DiscordConnection>>,
-                        db: Arc<PgConnection>,
+                        db: &PgConnection,
                         discord: &Arc<Mutex<Discord>>) {
         debug!("[event] Handling event");
 
@@ -219,30 +219,26 @@ impl<'a> Bot<'a> {
     }
 
     fn handle_server_create(&mut self,
-                            db: Arc<PgConnection>,
+                            db: &PgConnection,
                             server: LiveServer) {
         use models::Guild;
         use schema::guilds::dsl::*;
         use schema::guilds::table as guilds_table;
 
         let exists = {
-            let db = arc!(db);
-
             guilds.filter(id.eq(server.id.0 as i64))
-                .first::<Guild>(&db)
+                .first::<Guild>(db)
         };
 
         match exists {
             Ok(_guild) => {
-                let db = arc!(db);
-
                 let _update = diesel::update(guilds_table
                     .filter(id.eq(server.id.0 as i64)))
                     .set((
                         active.eq(true),
                         name.eq(&server.name),
                         owner_id.eq(server.owner_id.0 as i64)
-                    )).execute(&db);
+                    )).execute(db);
             },
             Err(diesel::NotFound) => {
                 let new = NewGuild {
@@ -253,11 +249,9 @@ impl<'a> Bot<'a> {
                 };
 
                 let creation = {
-                    let db = arc!(db);
-
                     diesel::insert(&new)
                         .into(guilds_table)
-                        .get_result::<Guild>(&db)
+                        .get_result::<Guild>(db)
                 };
 
                 if let Err(why) = creation {
@@ -271,16 +265,14 @@ impl<'a> Bot<'a> {
     }
 
     fn handle_server_delete(&mut self,
-                            db: Arc<PgConnection>,
+                            db: &PgConnection,
                             server_id: ServerId) {
         use schema::guilds::dsl::*;
 
         let update = {
-            let db = arc!(db);
-
             diesel::update(guilds.filter(id.eq(server_id.0 as i64)))
                 .set(active.eq(false))
-                .execute(&db)
+                .execute(db)
         };
 
         match update {
@@ -295,7 +287,7 @@ impl<'a> Bot<'a> {
     }
 
     fn handle_server_member_update(&mut self,
-                                   db: Arc<PgConnection>,
+                                   db: &PgConnection,
                                    server_id: ServerId,
                                    user: DiscordUser,
                                    nick: Option<String>) {
@@ -304,13 +296,11 @@ impl<'a> Bot<'a> {
         use schema::members::table as members_table;
 
         let update = {
-            let db = arc!(db);
-
             diesel::update(dsl::members
                 .filter(dsl::server_id.eq(server_id.0 as i64))
                 .filter(dsl::user_id.eq(user.id.0 as i64)))
                 .set(dsl::nickname.eq(nick))
-                .execute(&db)
+                .execute(db)
         };
 
         match update {
@@ -326,11 +316,9 @@ impl<'a> Bot<'a> {
                 };
 
                 let creation = {
-                    let db = arc!(db);
-
                     diesel::insert(&new)
                         .into(members_table)
-                        .get_result::<Member>(&db)
+                        .get_result::<Member>(db)
                 };
 
                 if let Err(why) = creation {
@@ -350,21 +338,19 @@ impl<'a> Bot<'a> {
     }
 
     fn handle_server_update(&mut self,
-                            db: Arc<PgConnection>,
+                            db: &PgConnection,
                             srv: Server) {
         use models::Guild;
         use schema::guilds::dsl::*;
         use schema::guilds::table as guilds_table;
 
         let update = {
-            let db = arc!(db);
-
             diesel::update(guilds.filter(id.eq(srv.id.0 as i64)))
                 .set((
                     active.eq(true),
                     name.eq(&srv.name),
                     owner_id.eq(srv.owner_id.0 as i64)))
-                .execute(&db)
+                .execute(db)
         };
 
         match update {
@@ -379,11 +365,9 @@ impl<'a> Bot<'a> {
                 };
 
                 let creation = {
-                    let db = arc!(db);
-
                     diesel::insert(&new)
                         .into(guilds_table)
-                        .get_result::<Guild>(&db)
+                        .get_result::<Guild>(db)
                 };
 
                 if let Err(why) = creation {
@@ -412,22 +396,18 @@ impl<'a> Bot<'a> {
         };
 
         let retrieval = {
-            let db = arc!(context.db);
-
             members
                 .filter(server_id.eq(server.id.0 as i64))
                 .filter(user_id.eq(context.message.author.id.0 as i64))
-                .first::<Member>(&db)
+                .first::<Member>(context.db)
         };
 
         match retrieval {
             Ok(member_) => {
                 let update = {
-                    let db = arc!(context.db);
-
                     diesel::update(members.filter(id.eq(member_.id)))
                         .set(message_count.eq(member_.message_count + 1))
-                        .execute(&db)
+                        .execute(context.db)
                 };
 
                 match update {
@@ -442,7 +422,7 @@ impl<'a> Bot<'a> {
                     },
                 }
 
-                check_user(&context.message.author, context.db.clone());
+                check_user(&context.message.author, context.db);
             },
             Err(diesel::NotFound) => {
                 let new = NewMember {
@@ -453,19 +433,15 @@ impl<'a> Bot<'a> {
                     weather_location: None,
                 };
 
-                let db = arc!(context.db);
-
                 let insertion = diesel::insert(&new)
                     .into(members_table)
-                    .get_result::<Member>(&db);
-
-                drop(db);
+                    .get_result::<Member>(context.db);
 
                 if let Err(why) = insertion {
                     warn!("[increment] Err creating member: {:?}", why);
                 }
 
-                check_user(&context.message.author, context.db.clone());
+                check_user(&context.message.author, context.db);
             },
             Err(why) => {
                 warn!("[increment] Err finding user {} on server {}: {:?}",
@@ -478,16 +454,14 @@ impl<'a> Bot<'a> {
 }
 
 /// Check that a user exists, and if not, make their record
-fn check_user(user: &DiscordUser, db: Arc<PgConnection>) {
+fn check_user(user: &DiscordUser, db: &PgConnection) {
     use models::User;
     use schema::users::dsl::*;
     use schema::users::table as users_table;
 
-    let db = arc!(db);
-
     let retrieval = users
         .filter(id.eq(user.id.0 as i64))
-        .first::<User>(&db);
+        .first::<User>(db);
 
     match retrieval {
         Ok(_user) => {},
@@ -501,7 +475,7 @@ fn check_user(user: &DiscordUser, db: Arc<PgConnection>) {
 
             let insertion = diesel::insert(&new)
                 .into(users_table)
-                .get_result::<User>(&db);
+                .get_result::<User>(db);
 
             if let Err(why) = insertion {
                 warn!("[check-user] Err creating user {}: {:?}", user.id, why);

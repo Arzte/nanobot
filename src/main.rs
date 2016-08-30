@@ -69,7 +69,7 @@ fn login() -> Result<Discord> {
 fn handle_connection(bot: &mut Bot,
                      conn: Arc<Mutex<DiscordConnection>>,
                      discord: Arc<Mutex<Discord>>,
-                     db: &Arc<PgConnection>) {
+                     db: &PgConnection) {
     let conn_copy = conn.clone();
 
     loop {
@@ -97,12 +97,12 @@ fn handle_connection(bot: &mut Bot,
         bot.state.update(&event);
         bot.event_counter.increment(&event);
 
-        bot.handle_event(event, conn.clone(), db.clone(), &discord);
+        bot.handle_event(event, conn.clone(), db, &discord);
     }
 }
 
 #[allow(or_fun_call)]
-fn program_loop(bot: &mut Bot, db: &Arc<PgConnection>) {
+fn program_loop(bot: &mut Bot, db: &PgConnection) {
     debug!("[base] Logging in...");
     let discord = match login() {
         Ok(discord) => Arc::new(Mutex::new(discord)),
@@ -282,7 +282,7 @@ fn main() {
     let mut bot = Bot::new();
 
     debug!("[base] Creating secondary connection to database");
-    let db = Arc::new(db_connect());
+    let db = db_connect();
 
     debug!("[base] Entering program loop");
 

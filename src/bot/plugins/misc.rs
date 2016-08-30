@@ -255,13 +255,9 @@ Current Connection: {} UTC```"#, boot, connection);
                 },
             };
 
-            let member_ = {
-                let db = arc!(context.db);
-
-                members.filter(server_id.eq(s.id.0 as i64))
-                    .filter(user_id.eq(context.message.author.id.0 as i64))
-                    .first::<Member>(&db)
-            };
+            let member_ = members.filter(server_id.eq(s.id.0 as i64))
+                .filter(user_id.eq(context.message.author.id.0 as i64))
+                .first::<Member>(context.db);
 
             match member_ {
                 Ok(member_) => match member_.weather_location {

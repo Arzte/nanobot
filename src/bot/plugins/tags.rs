@@ -25,11 +25,9 @@ impl Tags {
         };
 
         let tag: Tag = {
-            let db = arc!(context.db);
-
             let filter = tags.filter(server_id.eq(s.id.0 as i64))
                 .filter(key.eq(key_))
-                .first(&db);
+                .first(context.db);
 
             match filter {
                 Ok(tag_) => tag_,
@@ -51,14 +49,12 @@ impl Tags {
         };
 
         if !can_delete {
-            let _msg = req!(context.say("You do not have permission to delete a tag."));
+            let _msg = req!(context.say("You do not have permission to delete this tag."));
 
             return;
         }
 
-        let db = arc!(context.db);
-
-        match diesel::delete(tags.filter(id.eq(tag.id))).execute(&db) {
+        match diesel::delete(tags.filter(id.eq(tag.id))).execute(context.db) {
             Ok(_rows_deleted) => {
                 let _msg = req!(context.say("Deleted tag"));
             },
@@ -104,11 +100,9 @@ impl Tags {
         };
 
         let tag: Tag = {
-            let db = arc!(context.db);
-
             let filter = tags.filter(server_id.eq(s.id.0 as i64))
                 .filter(key.eq(user_key))
-                .first(&db);
+                .first(context.db);
 
             match filter {
                 Ok(tag_) => tag_,
@@ -118,14 +112,10 @@ impl Tags {
             }
         };
 
-        let update = {
-            let db = arc!(context.db);
-
-            diesel::update(tags.filter(server_id.eq(s.id.0 as i64))
-                .filter(key.eq(user_key)))
-                .set(uses.eq(tag.uses + 1))
-                .execute(&db)
-        };
+        let update = diesel::update(tags.filter(server_id.eq(s.id.0 as i64))
+            .filter(key.eq(user_key)))
+            .set(uses.eq(tag.uses + 1))
+            .execute(context.db);
 
         match update {
             Ok(_updated) => {},
@@ -148,11 +138,9 @@ impl Tags {
         };
 
         let tag: Tag = {
-            let db = arc!(context.db);
-
             let filter = tags.filter(server_id.eq(s.id.0 as i64))
                 .filter(key.eq(key_))
-                .first(&db);
+                .first(context.db);
 
             match filter {
                 Ok(tag_) => tag_,
@@ -204,9 +192,8 @@ Created at: {}
         };
 
         let tag_list: Vec<Tag> = {
-            let db = arc!(context.db);
-
-            let filter = tags.filter(server_id.eq(s.id.0 as i64)).load(&db);
+            let filter = tags.filter(server_id.eq(s.id.0 as i64))
+                .load(context.db);
 
             match filter {
                 Ok(tag_list) => tag_list,
@@ -329,26 +316,25 @@ Created at: {}
         }
 
         // Check that the tag currently exists
-        {
-            let db = arc!(context.db);
-
-            if let Err(_why) = tags.filter(server_id.eq(server.id.0 as i64))
+        let tag_ = {
+            let res = tags.filter(server_id.eq(server.id.0 as i64))
                 .filter(key.eq(key_old))
-                .first::<Tag>(&db) {
-                let _msg = req!(context.say("Tag does not exist"));
+                .first::<Tag>(context.db);
 
-                return;
+            match res {
+                Ok(tag_) => tag_,
+                Err(_why) => {
+                    let _msg = req!(context.say("Tag does not exist"));
+
+                    return;
+                },
             }
-        }
+        };
 
         // Check that a tag with the new name does not exist
-        let exists = {
-            let db = arc!(context.db);
-
-            tags.filter(server_id.eq(server.id.0 as i64))
-                .filter(key.eq(key_new))
-                .first::<Tag>(&db)
-        };
+        let exists = tags.filter(server_id.eq(server.id.0 as i64))
+            .filter(key.eq(key_new))
+            .first::<Tag>(context.db);
 
         match exists {
             Err(diesel::NotFound) => {},
@@ -366,15 +352,32 @@ Created at: {}
             },
         }
 
-        // It's now safe to update the key
-        let update = {
-            let db = arc!(context.db);
+        // Check that the user can rename this tag. They can rename it if one of
+        // the following is true:
+        //
+        // - they are the owner of the tag;
+        // - they have the "MANAGE_MESSAGES" permission.
+        let can_edit = if tag_.owner_id == context.message.author.id.0 as i64 {
+            true
+        } else {
+            let aid = context.message.author.id;
+            let cid = ChannelId(context.message.channel_id.0 as u64);
 
-            diesel::update(tags.filter(server_id.eq(server.id.0 as i64))
-                .filter(key.eq(key_old)))
-                .set(key.eq(key_new))
-                .execute(&db)
+            server.permissions_for(cid, aid)
+                .contains(permissions::MANAGE_MESSAGES)
         };
+
+        if !can_edit {
+            let _msg = req!(context.say("You do not have permission to rename this tag"));
+
+            return;
+        }
+
+        // It's now safe to update the key
+        let update = diesel::update(tags.filter(server_id.eq(server.id.0 as i64))
+            .filter(key.eq(key_old)))
+            .set(key.eq(key_new))
+            .execute(context.db);
 
         match update {
             Ok(1) => {
@@ -420,14 +423,10 @@ Created at: {}
             },
         };
 
-        let search_res = {
-            let db = arc!(context.db);
-
-            tags.filter(server_id.eq(s.id.0 as i64))
-                .filter(key.like(format!("%{}%", query)))
-                .limit(15)
-                .load(&db)
-        };
+        let search_res = tags.filter(server_id.eq(s.id.0 as i64))
+            .filter(key.like(format!("%{}%", query)))
+            .limit(15)
+            .load(context.db);
 
         let tag_list: Vec<Tag> = match search_res {
             Ok(tag_list) => tag_list,
@@ -492,13 +491,9 @@ Created at: {}
 
         // Check if the tag exists already; we don't want to override it
         {
-            let creation = {
-                let db = arc!(context.db);
-
-                tags.filter(server_id.eq(s.id.0 as i64))
-                    .filter(key.eq(key_))
-                    .first::<Tag>(&db)
-            };
+            let creation = tags.filter(server_id.eq(s.id.0 as i64))
+                .filter(key.eq(key_))
+                .first::<Tag>(context.db);
 
             if let Ok(_tag) = creation {
                 let _msg = req!(context.say("Tag already exists"));
@@ -515,13 +510,9 @@ Created at: {}
             value: value_,
         };
 
-        let creation = {
-            let db = arc!(context.db);
-
-            diesel::insert(&new)
-                .into(tags::table)
-                .get_result::<Tag>(&db)
-        };
+        let creation = diesel::insert(&new)
+            .into(tags::table)
+            .get_result::<Tag>(context.db);
 
         match creation {
             Ok(_tag) => {

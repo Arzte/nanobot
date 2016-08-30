@@ -9,7 +9,7 @@ use ::prelude::*;
 
 pub struct Context<'a> {
     pub conn: Arc<Mutex<DiscordConnection>>,
-    pub db: Arc<PgConnection>,
+    pub db: &'a PgConnection,
     pub discord: &'a Arc<Mutex<Discord>>,
     pub message: Message,
 }
@@ -17,7 +17,7 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     #[allow(needless_lifetimes)]
     pub fn new<'b>(conn: Arc<Mutex<DiscordConnection>>,
-                   db_connection: Arc<PgConnection>,
+                   db_connection: &'b PgConnection,
                    discord: &'b Arc<Mutex<Discord>>,
                    message: Message)
                    -> Context<'b> {
