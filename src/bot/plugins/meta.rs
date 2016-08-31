@@ -15,9 +15,7 @@ pub struct Meta<'a> {
 impl<'a> Meta<'a> {
     pub fn new<'b>() -> Meta<'b> {
         let mut map = BTreeMap::new();
-        map.insert("8ball", r#"Answers your question.
-
-Answers your question, optionally given, with either a positive or a negative answer. Sometimes nano isn't sure, and will give a neutral response.
+        map.insert("8ball", r#"Answers your question, optionally given, with either a positive or a negative answer. Sometimes nano isn't sure, and will give a neutral response.
 
 Examples:
 
@@ -25,7 +23,7 @@ Don't ask something, just get an answer:
 `;8ball` --> "It is positive."
 
 Ask something and get an answer:
-`;8ball will I get the job` --> "Very doubtful.""""#);
+`;8ball will I get the job` --> "Very doubtful."#);
         map.insert("about", r#"Gives basic information about nano."#);
         map.insert("aestheticcaps", r#"Partial alias of `aesthetic`, capitalizing and bolding everything."#);
         map.insert("aesthetic", r#"ｄａｎｋ
@@ -37,23 +35,46 @@ Only widens latin characters.
 Example:
 
 `;aesthetic dank meme bro` --> `ｄａｎｋ ｍｅｍｅ ｂｒｏ`"#);
-        map.insert("aescaps", r#"Alias of `aestheticcaps`."#);
-        map.insert("aes", r#"Alias of `aesthetic`."#);
+        map.insert("aescaps", r#"Shorthand for `aestheticcaps`.
+
+Does almost the same as `aesthetic`, except capitalizing and bolding everything."#);
+        map.insert("aes", r#"Alias of `aesthetic`.
+
+Produces widened text of the given input, aesthetic-style.
+
+Only widens latin characters.
+
+Example:
+
+`;aesthetic dank meme bro` --> `ｄａｎｋ ｍｅｍｅ ｂｒｏ`"#);
         map.insert("anime", r#"Searches for an anime by name
+
 If the first result is not a TV show, then the first 3 results will be searched for a TV result. If there is one, that will be used. This is done to prioritize TV over OVAs.
 
-Basic information such as the title, a Hummingbird link, when it aired, the score, the current status of the show, and episode count will be returned.
+Basic information such as the title, a Hummingbird link, when it aired, the score, the current status of the show, and episode count will be returned. If a MAL link is available, then one will be provided.
 
 Example:
 `;anime nichijou`"#);
-        map.insert("bigemoji", r#"Links to a larger, 112x112 version of an
-emoji."#);
-        map.insert("channelinfo", r#"Gives information about a channel"#);
+        map.insert("bigemoji", r#"Links to a larger, 112x112 version of a custom emoji."#);
+        map.insert("channelinfo", r#"Gives information about a channel.
+
+This includes the following information:
+
+- channel name
+- channel ID
+- channel topic
+- channel type (text/voice)
+- when the channel was created
+
+If the channel is a voice channel, then the following is also listed:
+
+- bitrate (quality)
+- user limit"#);
         map.insert("choose", r#"Randomly chooses an item in the list of choices.
 
-The list of choices can either be separated by spaces (` `) or by commas (`, `), similar to CSV format.
+The list of choices can either be separated by spaces or by commas (similar to CSV format).
 
-CSV _must_ be used when at least 1 choice is multiple words long.
+CSV _should_ be used when at least 1 choice is multiple words long.
 
 At least 2 choices must be given.
 
@@ -64,23 +85,21 @@ Giving a list separated by spaces:
 
 Giving a list separated by commas:
 `;choose cat, dog, bird, turtle`"#);
-        map.insert("coinflip", r#"Flips a coin, heads or tails.
-
-Does precisely what it says.
-
-Example:
-
-`;coinflip`"#);
-        map.insert("define", r#"Defines a word or phrase.
-
-Searches urbandictionary for the given word or phrase, giving back the first result.
+        map.insert("coinflip", r#"Flips a coin, heads or tails. Sometimes neither."#);
+        map.insert("define", r#"Searches urbandictionary for the given word or phrase, giving back the first result.
 
 Results _can_ and _often will_ be NSFW due to the nature of urbandictionary.
 
 Example:
 
 `;define lmgtfy`"#);
-        map.insert("delete", r#"Deletes a tag by name."#);
+        map.insert("delete", r#"Deletes a tag by name.
+
+A tag can only be deleted if you are the owner of the tag or you have the "Manage Messages" permission.
+
+Example:
+
+`;delete some tag name`"#);
         map.insert("get", r#"Gets a tag by name where using the shortcut will not work.
 
 As command names will shadow tag names, this is sometimes necessary.
@@ -90,46 +109,44 @@ Example:
 A tag named 'coinflip' can be accessed via:
 
 `;get coinflip`"#);
-        map.insert("hello", r#"Says hello to you or someone you mention.
-
-Says hi to you! If you mention someone, nano will say hi to them instead.
+        map.insert("hello", r#"Says hi to you! If you mention someone, nano will say hi to them instead.
 
 Examples:
 
 `;hello` --> `Hey @username!`
 
 `;hello @friend` --> `Selamat pagi, @friend!`"#);
-        map.insert("help", r#"oh. ok."#);
-        map.insert("info", r#"Lists information about a tag, such as the number of uses and the owner."#);
+        map.insert("help", r#":thinking:"#);
+        map.insert("info", r#"Lists information about a tag by name.
+
+This includes the following information:
+
+- name
+- owner of the tag
+- when it was created
+- the number of times the tag has been used
+
+Example:
+
+`;info cat`"#);
         map.insert("invite", r#"Gives an invite link to invite nano to your server."#);
-        map.insert("join", r#"Joins your voice channel, or one by name if one
-is given.
+        map.insert("join", r#"Joins your voice channel, or one by name if one is given.
 
 Nano can be in a voice channel in multiple servers at once, but only one voice channel per server at once.
 
-If you do not give the name of a Voice Channel, nano will join yours if you are in one.
+If you do not give the name of a voice channel, nano will join yours if you are in one.
 
 Example:
 
 `;join #general`"#);
-        map.insert("leave", r#"Leaves the current voice channel."#);
-        map.insert("list", r#"Creates a list of all tags on this server.
-
-If the list of tags is over one message long, the list will be private messaged."#);
-        map.insert("mfw", r#"Your face right now.
-
-Outputs a random emoji.
+        map.insert("leave", r#"Leaves the current voice channel if in one."#);
+        map.insert("list", r#"Creates a list of all tags on the server. This will always be privately messaged to you."#);
+        map.insert("mfw", r#"Your face right now. Outputs a random emoji.
 
 Example:
 
 `;mfw` --> `:grin:`"#);
-        map.insert("ping", r#"Pong! Checks if nano is working, giving the response time.
-
-Nano will reply with "Pong!" and will edit her message with how long it took to send the message.
-
-Example:
-
-`;ping` --> `Pong!`"#);
+        map.insert("ping", r#"Pong! Checks if nano is working, giving the response time."#);
         map.insert("pi", r#"Lists pi up to the number of digits given
 
 Outputs pi up to the number of digits given (if given). The default number of digits to list to is 100, while the maximum is 1000.
@@ -148,14 +165,30 @@ The queue of songs can be viewed via the `queue` command.
 Example:
 
 `;play https://www.youtube.com/watch?v=nGtQY2VpVsM`"#);
-        map.insert("purge", r#"Deletes the number of messages given, in descending order."#);
+        map.insert("purge", r#"Deletes the number of messages given, in descending order.
+
+At least 2 messages must be purged. At most only 100 messages can be purged.
+
+Example:
+
+`;purge 15`"#);
         map.insert("queue", r#"Retrieves a list of queued songs"#);
         map.insert("rename", r#"Renames a tag from one key to another.
+
+You must either own the tag or have the "Manage Messages" permission to rename a tag.
 
 Example:
 
 `;rename my pic --> someone else's pic`"#);
         map.insert("roleinfo", r#"Lists info about a role by name.
+
+This includes the following information:
+
+- name
+- ID of the role
+- whether the role is "hoisted" (above regular roles)
+- whether the role can be mentioned
+- when the role was created
 
 Example:
 
@@ -184,7 +217,7 @@ See You Space Cowboy...
 Example:
 
 `;roulette` --> "BANG! @you was shot""#);
-        map.insert("say", r#"Makes nano say something
+        map.insert("say", r#"Makes nano say something.
 
 Example:
 
@@ -196,7 +229,7 @@ Example:
 `;search dog`"#);
         map.insert("serverinfo", r#"Displays information about the current server.
 
-Does what it says. Lists the following information:
+This includes the following information:
 
 - server name
 - id of server
@@ -206,26 +239,22 @@ Does what it says. Lists the following information:
 - number of text and voice channels, respectively
 - the date that the server was created
 - the url of the server's image
-- a list of all server roles
-
-Example:
-
-`!serverinfo`"#);
+- a list of all server roles"#);
         map.insert("set", r#"Sets a tag by key-and-value.
 
 Example:
 
-`;set cat: https://i.imgur.com/some_url.jpg`;
+`;set cat: https://i.imgur.com/some_url.jpg`
 
 And to use the tag:
 
 `;cat`"#);
         map.insert("skip", r#"Votes to skip a song.
 
-Only when the number of votes is reached will the current song be passed."#);
-        map.insert("stats", r#"Returns a list of the top 35 peoples' message counts.
+Only when the number of votes is reached will the current song be passed, and the next song in the queue will be played."#);
+        map.insert("stats", r#"Returns a list of the top 10 peoples' message counts.
 
-If there are more than 35 people, they will not be listed."#);
+If there are more than 10 people, they will not be listed."#);
         map.insert("status", r#"Lists information about the current song playing."#);
         map.insert("teams", r#"Creates a number of teams for the usernames given.
 
@@ -238,7 +267,7 @@ Examples:
 `;teams 2 a, b, c, d, e, f`
 
 `;teams 3 a, b, c, d, e, f`"#);
-        map.insert("uptime", r#"Lists the amount of time nano has been up."#);
+        map.insert("uptime", r#"Lists the amount of time nano has been online."#);
         map.insert("userinfo", r#"Displays information about yourself or another member.
 
 Will display basic information about you or a searched member.
@@ -260,7 +289,7 @@ This information includes:
 Examples:
 
 `;userinfo`
-`;userinfo @someone`
+`;userinfo @zey`
 `;userinfo zey#5479`
 `;userinfo zey`"#);
         map.insert("weather", r#"Retrieves the current weather for a location
