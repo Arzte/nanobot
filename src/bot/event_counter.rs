@@ -16,6 +16,7 @@ pub enum EventType {
     ChannelUpdate,
     MessageAck,
     MessageCreate,
+    MessageDeleteBulk,
     MessageDelete,
     MessageUpdate,
     PresenceUpdate,
@@ -53,7 +54,7 @@ pub struct EventCounter {
     counter: HashMap<EventType, u64>,
 }
 
-pub fn event_types() -> [EventType; 43] {
+pub fn event_types() -> [EventType; 44] {
     [
         EventType::CallCreate,
         EventType::CallDelete,
@@ -67,6 +68,7 @@ pub fn event_types() -> [EventType; 43] {
         EventType::ChannelUpdate,
         EventType::MessageAck,
         EventType::MessageCreate,
+        EventType::MessageDeleteBulk,
         EventType::MessageDelete,
         EventType::MessageUpdate,
         EventType::PresenceUpdate,
@@ -129,6 +131,7 @@ impl EventCounter {
             Event::ChannelUpdate(_) => EventType::ChannelUpdate,
             Event::MessageAck { .. } => EventType::MessageAck,
             Event::MessageCreate(_) => EventType::MessageCreate,
+            Event::MessageDeleteBulk { .. } => EventType::MessageDeleteBulk,
             Event::MessageDelete { .. } => EventType::MessageDelete,
             Event::MessageUpdate { .. } => EventType::MessageUpdate,
             Event::PresenceUpdate { .. } => EventType::PresenceUpdate,
