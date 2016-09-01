@@ -15,7 +15,7 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 use chrono::UTC;
-use discord::model::{ChannelId, ServerId, UserId};
+use discord::model::{ChannelId, ServerId, UserId, permissions};
 use discord::{ChannelRef, State};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
@@ -380,8 +380,8 @@ impl Music {
     }
 
     pub fn skip(&mut self, context: Context, state: &State) {
-        let server_id = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server.id,
+        let server = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server,
             _ => {
                 warn!("could not find server for channel {}",
                       context.message.channel_id);
@@ -398,7 +398,7 @@ impl Music {
         let vote = {
             let mut state = self.state.lock().unwrap();
 
-            match state.status.get_mut(&server_id) {
+            match state.status.get_mut(&server.id) {
                 Some(mut current_opt) => {
                     if let Some(mut current) = current_opt.as_mut() {
                         if current.req.requester == context.message.author.id {
@@ -436,12 +436,12 @@ impl Music {
             },
             SkipVote::Passed => {
                 let mut state = self.state.lock().unwrap();
-                state.status.insert(server_id, None);
+                state.status.insert(server.id, None);
                 drop(state);
 
                 let mut conn = context.conn.lock().unwrap();
                 {
-                    let mut voice = conn.voice(Some(server_id));
+                    let mut voice = conn.voice(Some(server.id));
                     voice.stop();
                 }
                 drop(conn);
@@ -453,7 +453,7 @@ impl Music {
             SkipVote::Voted => {
                 let state = self.state.lock().unwrap();
 
-                let current = match state.status.get(&server_id) {
+                let current = match state.status.get(&server.id) {
                     Some(current_opt) => {
                         if let Some(current) = current_opt.as_ref() {
                             (current.skip_votes.len(), current.skip_votes_required)
@@ -481,12 +481,12 @@ impl Music {
             },
             SkipVote::VoterSkipped => {
                 let mut state = self.state.lock().unwrap();
-                state.status.insert(server_id, None);
+                state.status.insert(server.id, None);
                 drop(state);
 
                 let mut conn = context.conn.lock().unwrap();
                 {
-                    let mut voice = conn.voice(Some(server_id));
+                    let mut voice = conn.voice(Some(server.id));
                     voice.stop();
                 }
                 drop(conn);
@@ -497,12 +497,19 @@ impl Music {
             },
         };
 
-        if remove_from_completion {
+        let is_admin = {
+            let perms = server.permissions_for(context.message.channel_id,
+                                               context.message.author.id);
+
+            perms.contains(permissions::ADMINISTRATOR)
+        };
+
+        if remove_from_completion || is_admin {
             let mut state = self.state.lock().unwrap();
 
             for (_k, v) in &mut state.song_completion {
                 let removal_index = v.iter()
-                    .position(|sid| *sid == server_id);
+                    .position(|sid| *sid == server.id);
 
                 if let Some(removal_index) = removal_index {
                     v.remove(removal_index);
@@ -511,7 +518,7 @@ impl Music {
                 }
             }
 
-            state.song_completion.insert(0, vec![server_id]);
+            state.song_completion.insert(0, vec![server.id]);
         }
     }
 
