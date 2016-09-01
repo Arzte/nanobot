@@ -1,8 +1,24 @@
+// ISC License (ISC)
+//
+// Copyright (c) 2016, Austin Hellyer <hello@austinhellyer.me>
+//
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+// PERFORMANCE OF THIS SOFTWARE.
+
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use diesel;
 use discord::{ChannelRef, State};
-use forecast_io::{self, Icon};
+use forecast_io::{self, Icon, Unit};
 use rand::{Rng, thread_rng};
 use std::ascii::AsciiExt;
 use std::{char, env, str};
@@ -325,7 +341,11 @@ You do not have a location saved on this server!"));
             },
         };
 
-        let forecast = match forecast_io::get_forecast(token, lat, long) {
+        let res = forecast_io::get_forecast_with_options(token, lat, long, |o| {
+            o.unit(Unit::Si)
+        });
+
+        let forecast = match res {
             Ok(forecast) => forecast,
             Err(why) => {
                 warn!("[forecast] err getting forecast: {:?}", why);
@@ -335,40 +355,66 @@ You do not have a location saved on this server!"));
             },
         };
 
-        let icon = match forecast.currently.icon {
-            Icon::ClearDay => ":sunny:",
-            Icon::ClearNight => ":night_with_stars:",
-            Icon::Cloudy => ":cloudy:",
-            Icon::Fog => ":foggy:",
-            Icon::Hail | Icon::Sleet | Icon::Snow => ":cloud_snow:",
-            Icon::PartlyCloudyDay => ":partly_sunny:",
-            Icon::PartlyCloudyNight => ":cloud:",
-            Icon::Rain => ":cloud_rain:",
-            Icon::Thunderstorm => ":thunder_cloud_rain:",
-            Icon::Tornado => ":cloud_tornado:",
-            Icon::Wind => ":wind_blowing_face:",
+        let currently = match forecast.currently {
+            Some(currently) => currently,
+            None => {
+                let _msg = req!(context.say("Could not retrieve the forecast"));
+
+                return;
+            },
+        };
+
+        let icon = match currently.icon {
+            Some(icon) => match icon {
+                Icon::ClearDay => ":sunny:",
+                Icon::ClearNight => ":night_with_stars:",
+                Icon::Cloudy => ":cloudy:",
+                Icon::Fog => ":foggy:",
+                Icon::Hail | Icon::Sleet | Icon::Snow => ":cloud_snow:",
+                Icon::PartlyCloudyDay => ":partly_sunny:",
+                Icon::PartlyCloudyNight => ":cloud:",
+                Icon::Rain => ":cloud_rain:",
+                Icon::Thunderstorm => ":thunder_cloud_rain:",
+                Icon::Tornado => ":cloud_tornado:",
+                Icon::Wind => ":wind_blowing_face:",
+            },
+            None => "N/A",
         };
         let current_time = {
-            let offset = (3600 * forecast.offset as i64) as i64;
-            let timestamp = forecast.currently.time as i64 + offset;
-            NaiveDateTime::from_timestamp(timestamp, 0)
-                .format("%H:%M%p")
+            if let Some(offset) = forecast.offset {
+                let timestamp = currently.time as i64 + offset as i64;
+
+                NaiveDateTime::from_timestamp(timestamp, 0)
+                    .format("%H:%M%p")
+                    .to_string()
+            } else {
+                "N/A".to_owned()
+            }
         };
-        let temp_f = forecast.currently.temperature.floor();
-        let temp_c = (((forecast.currently.temperature - 32f64) * 5f64) / 9f64)
-            .floor() as i64;
+        let temp = {
+            if let Some(temp_f) = currently.temperature {
+                info!("f: {}", temp_f);
+                let temp_c = ((temp_f - 32f64) * (5f64 / 9f64)) as i16;
+
+                format!("{}C ({}F)", temp_c, temp_f)
+            } else {
+                "N/A".to_owned()
+            }
+        };
+        let probability = currently.precip_probability
+            .map(|v| v as u8)
+            .unwrap_or(0u8);
 
         let text = format!(r#"{} **{}**
 :clock1: {}
 Currently: {}
-{}C ({}F)
+{}
 Rain: {}%"#, icon,
              name,
              current_time,
-             forecast.currently.summary,
-             temp_c,
-             temp_f,
-             forecast.currently.precip_probability);
+             currently.summary.unwrap_or("No summary available".to_owned()),
+             temp,
+             probability);
 
         let _msg = req!(context.say(text));
     }
