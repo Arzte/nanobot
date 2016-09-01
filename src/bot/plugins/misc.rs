@@ -308,10 +308,12 @@ You do not have a location saved on this server!"));
             let _msg = req!(context.say("No location name given"));
         }
 
+        let msg = req!(context.say("Retrieving the forecast..."));
+
         let location_data = match google_maps::get_address(location_name) {
             Ok(location_data) => location_data,
             Err(_why) => {
-                let _msg = req!(context.say("Error retrieving location data"));
+                let _msg = req!(context.edit(&msg, "Error retrieving location data"));
 
                 return;
             },
@@ -324,7 +326,7 @@ You do not have a location saved on this server!"));
                 result.address_components.get(0).unwrap().long_name.clone(),
             ),
             None => {
-                let _msg = req!(context.say("No results found for location"));
+                let _msg = req!(context.edit(&msg, "No results found for location"));
 
                 return;
             },
@@ -335,7 +337,7 @@ You do not have a location saved on this server!"));
             Err(why) => {
                 warn!("[weather] FORECAST_TOKEN not set: {:?}", why);
 
-                let _msg = req!(context.say("Forecast data misconfigured"));
+                let _msg = req!(context.edit(&msg, "Forecast data misconfigured"));
 
                 return;
             },
@@ -349,7 +351,7 @@ You do not have a location saved on this server!"));
             Ok(forecast) => forecast,
             Err(why) => {
                 warn!("[forecast] err getting forecast: {:?}", why);
-                let _msg = req!(context.say("Could not retrieve the forecast"));
+                let _msg = req!(context.edit(&msg, "Could not retrieve the forecast"));
 
                 return;
             },
@@ -358,7 +360,7 @@ You do not have a location saved on this server!"));
         let currently = match forecast.currently {
             Some(currently) => currently,
             None => {
-                let _msg = req!(context.say("Could not retrieve the forecast"));
+                let _msg = req!(context.edit(&msg, "Could not retrieve the forecast"));
 
                 return;
             },
@@ -392,11 +394,11 @@ You do not have a location saved on this server!"));
             }
         };
         let temp = {
-            if let Some(temp_f) = currently.temperature {
-                info!("f: {}", temp_f);
-                let temp_c = ((temp_f - 32f64) * (5f64 / 9f64)) as i16;
+            if let Some(temp_c) = currently.temperature {
+                info!("c: {}", temp_c);
+                let temp_f = (((temp_c * 9f64) / 5f64) + 32f64) as i16;
 
-                format!("{}C ({}F)", temp_c, temp_f)
+                format!("{}C ({}F)", temp_c as i16, temp_f)
             } else {
                 "N/A".to_owned()
             }
@@ -416,6 +418,6 @@ Rain: {}%"#, icon,
              temp,
              probability);
 
-        let _msg = req!(context.say(text));
+        let _msg = req!(context.edit(&msg, text));
     }
 }
