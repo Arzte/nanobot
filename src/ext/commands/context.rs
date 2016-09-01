@@ -45,6 +45,19 @@ impl<'a> Context<'a> {
         }
     }
 
+    fn send(&self, channel_id: ChannelId, content: String) -> Result<Message> {
+        let discord = self.discord.lock().unwrap();
+
+        match discord.send_message(&channel_id, &content, "", false) {
+            Ok(message) => Ok(message),
+            Err(why) => {
+                error!("[send] Err sending: {:?}", why);
+
+                Err(Error::Discord(why))
+            },
+        }
+    }
+
     pub fn arg(&self, number: u8) -> ContextArg {
         let split: (&str, &str) = self.message.content.split_at(';'.len_utf8());
         let mut commands: Vec<&str> = split.1.split_whitespace().collect();
@@ -89,10 +102,14 @@ impl<'a> Context<'a> {
         let discord = self.discord.lock().unwrap();
 
         match discord.edit_message(&message.channel_id,
-                                        &message.id,
-                                        &new_content.into()) {
+                                   &message.id,
+                                   &new_content.into()) {
             Ok(message) => Ok(message),
-            Err(why) => Err(Error::Discord(why)),
+            Err(why) => {
+                warn!("[edit] Err editing: {:?}", why);
+
+                Err(Error::Discord(why))
+            },
         }
     }
 
@@ -100,29 +117,34 @@ impl<'a> Context<'a> {
                                     channel_id: ChannelId,
                                     content: S)
                                     -> Result<Message> {
-        let into = content.into();
+        self.send(channel_id, content.into())
+    }
+
+    pub fn pm_author<S: Into<String>>(&self, content: S) -> Result<Message> {
         let discord = self.discord.lock().unwrap();
 
-        match discord.send_message(&channel_id, &into, "", false) {
-            Ok(message) => Ok(message),
-            Err(why) => Err(Error::Discord(why)),
-        }
+        let ch = match discord.create_private_channel(&self.message.author.id) {
+            Ok(ch) => ch,
+            Err(why) => {
+                error!("[pm_author] Err opening private channel: {:?}", why);
+
+                return Err(Error::Discord(why));
+            },
+        };
+
+        drop(discord);
+
+        self.send(ch.id, content.into())
     }
 
     pub fn reply<S: Into<String>>(&self, content: S) -> Result<Message> {
         let reply = format!("{}: {}", self.message.author.mention(), content.into());
 
-        self.say(reply)
+        self.send(self.message.channel_id, reply)
     }
 
     pub fn say<S: Into<String>>(&self, content: S) -> Result<Message> {
-        let into = content.into();
-        let discord = self.discord.lock().unwrap();
-
-        match discord.send_message(&self.message.channel_id, &into, "", false) {
-            Ok(message) => Ok(message),
-            Err(why) => Err(Error::Discord(why)),
-        }
+        self.send(self.message.channel_id, content.into())
     }
 
     pub fn text(&self, from: usize) -> String {

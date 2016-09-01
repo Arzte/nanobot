@@ -550,7 +550,8 @@ User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
 
             names.push_str("```Use `help <command>` for info about a command");
 
-            let _msg = req!(context.say(names));
+            let _msg = req!(context.pm_author(names));
+            let _msg = req!(context.say("Check your PMs!"));
 
             return;
         }
