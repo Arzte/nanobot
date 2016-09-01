@@ -1,17 +1,33 @@
 use chrono::UTC;
-use serde_json;
+use serde_json::{self, Value};
 use std::fs::File;
 use std::path::Path;
 use std::process::Command;
 use ::error::{Error, Result};
+use ::utils::{into_map, into_string, remove};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct YoutubeDLData {
     pub duration: u64,
     pub fulltitle: String,
     pub title: String,
     pub uploader: String,
     pub view_count: u64,
+}
+
+impl YoutubeDLData {
+    fn decode(value: Value) -> Result<YoutubeDLData> {
+        let mut map = try!(into_map(value));
+
+        Ok(YoutubeDLData {
+            duration: reqf!(try!(remove(&mut map, "duration")).as_u64()),
+            fulltitle: try!(remove(&mut map, "fulltitle")
+                .and_then(into_string)),
+            title: try!(remove(&mut map, "title").and_then(into_string)),
+            uploader: try!(remove(&mut map, "uploader").and_then(into_string)),
+            view_count: reqf!(try!(remove(&mut map, "view_count")).as_u64()),
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -81,7 +97,7 @@ pub fn download(url: &str) -> Result<Response> {
         },
     };
 
-    let data: YoutubeDLData = match serde_json::from_reader(file) {
+    let data = match YoutubeDLData::decode(try!(serde_json::from_reader(file))) {
         Ok(data) => data,
         Err(why) => {
             warn!("parsing {}: {:?}", json_path, why);

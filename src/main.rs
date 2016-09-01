@@ -1,5 +1,5 @@
-#![feature(custom_attribute, custom_derive, plugin)]
-#![plugin(diesel_codegen, dotenv_macros, serde_macros)]
+#![cfg_attr(feature = "nightly", feature(custom_attribute, custom_derive, plugin))]
+#![cfg_attr(feature = "nightly", plugin(diesel_codegen, dotenv_macros))]
 #![allow(unknown_lints)]
 
 #[macro_use]
@@ -20,15 +20,19 @@ extern crate serde_json;
 extern crate serde;
 extern crate urbandictionary;
 
+#[cfg(feature = "nightly")]
+include!("main.in.rs");
+
+#[cfg(feature = "with-syntex")]
+include!(concat!(env!("OUT_DIR"), "/main.rs"));
+
 #[macro_use]
 mod utils;
 
 mod bot;
 mod error;
 mod ext;
-mod models;
 mod prelude;
-mod schema;
 
 use bot::Bot;
 use bot::plugins::music::{MusicPlaying, MusicState};

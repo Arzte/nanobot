@@ -12,8 +12,8 @@ fn main() {
     diesel_codegen::register(&mut registry);
     dotenv_codegen::register(&mut registry);
 
-    let src = Path::new("src/main.in.rs");
-    let dst = Path::new(&out_dir).join("main.rs");
+    let src = Path::new("src/lib.in.rs");
+    let dst = Path::new(&out_dir).join("lib.rs");
 
     registry.expand("", &src, &dst).unwrap();
 }

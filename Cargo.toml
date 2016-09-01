@@ -5,28 +5,29 @@ name = "nanobot"
 version = "0.1.0"
 
 [build-dependencies]
-diesel_codegen_syntex = { version = "0.7", features = ["postgres"], optional = true }
+diesel_codegen_syntex = { version = "0.7.0", features = ["postgres"], optional = true }
 dotenv_codegen = { version = "0.9", optional = true }
-syntex = { version = "0.38", optional = true }
+syntex = { version = "0.31.0", optional = true }
 
 [dependencies]
 chrono = "0.2"
-diesel_codegen = { version = "0.7", features = ["postgres"], optional = true }
+diesel_codegen = { version = "0.7.0", features = ["postgres"], optional = true }
 diesel = "0.7.0"
 discord = { git = "https://github.com/SpaceManiac/discord-rs.git" }
-dotenv_macros = { version = "0.9", optional = true }
-dotenv = "0.8"
+dotenv_codegen = { version = "0.9", optional = true }
+dotenv_macros = { version = "0.9.0", optional = true }
+dotenv = "0.8.0"
 env_logger = "0.3"
-forecast_io = "0.2"
+forecast_io = { git = "https://github.com/zeyla/forecast.io.rs.git" }
 hummingbird = "0.1"
 hyper = "> 0.8"
 log = "0.3"
 rand = "0.3"
 regex = "0.1"
 rusqlite = "0.7"
+serde_codegen = "0.8.5"
 serde_json = "0.8"
-serde_macros = "0.8"
-serde = "0.8"
+serde = "0.8.5"
 urbandictionary = "0.1"
 walkdir = "0.1"
 
