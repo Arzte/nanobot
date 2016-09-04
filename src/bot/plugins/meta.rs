@@ -25,12 +25,8 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use ::prelude::*;
 
-pub struct Meta<'a> {
-    help: BTreeMap<&'a str, &'a str>,
-}
-
-impl<'a> Meta<'a> {
-    pub fn new<'b>() -> Meta<'b> {
+lazy_static! {
+    static ref HELP: BTreeMap<&'static str, &'static str> = {
         let mut map = BTreeMap::new();
         map.insert("8ball", r#"Answers your question, optionally given, with either a positive or a negative answer. Sometimes nano isn't sure, and will give a neutral response.
 
@@ -317,24 +313,24 @@ Examples:
 
 Retrieve weather for a location:
 `;weather New York City`"#);
-        Meta {
-            help: map,
+
+        map
+    };
+}
+
+pub fn about(context: Context) {
+    let client_id = match env::var("DISCORD_CLIENT_ID") {
+        Ok(client_id) => client_id,
+        Err(_why) => {
+            error!("[env] No Client ID");
+
+            let _msg = req!(context.say("Error getting client id"));
+
+            return;
         }
-    }
+    };
 
-    pub fn about(&self, context: Context) {
-        let client_id = match env::var("DISCORD_CLIENT_ID") {
-            Ok(client_id) => client_id,
-            Err(_why) => {
-                error!("[env] No Client ID");
-
-                let _msg = req!(context.say("Error getting client id"));
-
-                return;
-            }
-        };
-
-        let _msg = req!(context.say(format!(r#"
+    let _msg = req!(context.say(format!(r#"
 nano v{}
 
 Developed by zey (<@114941315417899012>)
@@ -351,130 +347,130 @@ https://discord.gg/MFHVwvW
 Invite nano to your server:
 https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
 "#, env!("CARGO_PKG_VERSION"), client_id)));
+}
+
+pub fn big_emoji(context: Context) {
+    let arg_found = context.arg(1);
+
+    let arg = match arg_found.as_str() {
+        Ok(arg) => arg,
+        Err(_why) => {
+            let _msg = req!(context.say("Must provide an emoji"));
+
+            return;
+        },
+    };
+    // A fast way to check this. This will technically have the ability to
+    // provide a false error message (such as when someone args "test").
+    if !arg.starts_with('<') {
+        let _msg = req!(context.say("Can not process regular emojis"));
+
+        return;
     }
 
-    pub fn big_emoji(&self, context: Context) {
-        let arg_found = context.arg(1);
+    let error = "Error processing emoji";
 
-        let arg = match arg_found.as_str() {
-            Ok(arg) => arg,
-            Err(_why) => {
-                let _msg = req!(context.say("Must provide an emoji"));
+    let re = match Regex::new(r"<:(.*):([0-9]+)>") {
+        Ok(re) => re,
+        Err(_why) => {
+            let _msg = req!(context.say(error));
 
-                return;
-            },
-        };
-        // A fast way to check this. This will technically have the ability to
-        // provide a false error message (such as when someone args "test").
-        if !arg.starts_with('<') {
-            let _msg = req!(context.say("Can not process regular emojis"));
+            return;
+        },
+    };
+    let caps = match re.captures(arg) {
+        Some(re) => re,
+        None => {
+            let _msg = req!(context.say(error));
+
+            return;
+        },
+    };
+
+    let id = match caps.at(2) {
+        Some(id) => id,
+        None => {
+            let _msg = req!(context.say(error));
+
+            return;
+        },
+    };
+
+    let text = format!("https://cdn.discordapp.com/emojis/{}.png", id);
+
+    let _msg = req!(context.say(text));
+}
+
+pub fn channel_info(context: Context) {
+    let channel_mentions = context.channel_mentions();
+
+    let id = if let Some(channel) = channel_mentions.get(0) {
+        channel.id
+    } else if context.arg(1).exists() {
+        if let Ok(id) = context.arg(1).as_u64() {
+            ChannelId(id)
+        } else {
+            let _msg = req!(context.say("Can't find channel"));
 
             return;
         }
+    } else {
+        context.message.channel_id
+    };
 
-        let error = "Error processing emoji";
+    let state = context.state.lock().unwrap();
+    let channel = if let Some(find) = state.find_channel(&id) {
+        let mcid = context.message.channel_id;
+        match find {
+            ChannelRef::Public(server, channel) => {
+                let srvid = if let Some(find) = state.find_channel(&mcid) {
+                    match find {
+                        ChannelRef::Public(srv, _channel) => srv.id,
+                        _ => {
+                            let text = "This channel is not supported";
 
-        let re = match Regex::new(r"<:(.*):([0-9]+)>") {
-            Ok(re) => re,
-            Err(_why) => {
-                let _msg = req!(context.say(error));
+                            let _msg = req!(context.say(text));
 
-                return;
-            },
-        };
-        let caps = match re.captures(arg) {
-            Some(re) => re,
-            None => {
-                let _msg = req!(context.say(error));
-
-                return;
-            },
-        };
-
-        let id = match caps.at(2) {
-            Some(id) => id,
-            None => {
-                let _msg = req!(context.say(error));
-
-                return;
-            },
-        };
-
-        let text = format!("https://cdn.discordapp.com/emojis/{}.png", id);
-
-        let _msg = req!(context.say(text));
-    }
-
-    pub fn channel_info(&self, context: Context) {
-        let channel_mentions = context.channel_mentions();
-
-        let id = if let Some(channel) = channel_mentions.get(0) {
-            channel.id
-        } else if context.arg(1).exists() {
-            if let Ok(id) = context.arg(1).as_u64() {
-                ChannelId(id)
-            } else {
-                let _msg = req!(context.say("Can't find channel"));
-
-                return;
-            }
-        } else {
-            context.message.channel_id
-        };
-
-        let state = context.state.lock().unwrap();
-        let channel = if let Some(find) = state.find_channel(&id) {
-            let mcid = context.message.channel_id;
-            match find {
-                ChannelRef::Public(server, channel) => {
-                    let srvid = if let Some(find) = state.find_channel(&mcid) {
-                        match find {
-                            ChannelRef::Public(srv, _channel) => srv.id,
-                            _ => {
-                                let text = "This channel is not supported";
-
-                                let _msg = req!(context.say(text));
-
-                                return;
-                            },
-                        }
-                    } else {
-                        let _msg = req!(context.say("Can't find server"));
-
-                        return;
-                    };
-
-                    if server.id != srvid {
-                        let text = "Can't find cross-server channels";
-
-                        let _msg = req!(context.say(text));
-
-                        return;
+                            return;
+                        },
                     }
+                } else {
+                    let _msg = req!(context.say("Can't find server"));
 
-                    channel.clone()
-                },
-                _ => {
-                    let text = "Private Channels are not supported";
+                    return;
+                };
+
+                if server.id != srvid {
+                    let text = "Can't find cross-server channels";
 
                     let _msg = req!(context.say(text));
 
                     return;
-                },
-            }
-        } else {
-            let _msg = req!(context.say("Could not find channel"));
+                }
 
-            return;
-        };
-        drop(state);
+                channel.clone()
+            },
+            _ => {
+                let text = "Private Channels are not supported";
 
-        let secs = channel.id.creation_date().sec;
-        let created_at = NaiveDateTime::from_timestamp(secs, 0)
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string();
+                let _msg = req!(context.say(text));
 
-        let mut text = format!(r#"```xl
+                return;
+            },
+        }
+    } else {
+        let _msg = req!(context.say("Could not find channel"));
+
+        return;
+    };
+    drop(state);
+
+    let secs = channel.id.creation_date().sec;
+    let created_at = NaiveDateTime::from_timestamp(secs, 0)
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    let mut text = format!(r#"```xl
      Name: {}
        ID: {}
     Topic: {}
@@ -485,170 +481,170 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
                  channel.kind.name(),
                  created_at);
 
-        if channel.kind == ChannelType::Voice {
-            text.push_str(&format!(r#"
+    if channel.kind == ChannelType::Voice {
+        text.push_str(&format!(r#"
   Bitrate: {}kbps
 User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
-                  channel.user_limit.unwrap_or(0)));
-        }
-
-        text.push_str("```");
-
-        let _msg = req!(context.say(text));
+channel.user_limit.unwrap_or(0)));
     }
 
-    pub fn events(&self, context: Context, counter: Arc<Mutex<EventCounter>>) {
-        let mut text = String::from("Events seen:\n");
+    text.push_str("```");
 
-        let arg_found = context.arg(1);
+    let _msg = req!(context.say(text));
+}
 
-        let event_types = if let Ok(arg) = arg_found.as_str() {
-            if arg == "--all" {
-                event_counter::event_types().to_vec()
-            } else {
-                vec![
-                    EventType::MessageCreate,
-                    EventType::PresenceUpdate,
-                    EventType::TypingStart,
-                ]
-            }
+pub fn events(context: Context, counter: Arc<Mutex<EventCounter>>) {
+    let mut text = String::from("Events seen:\n");
+
+    let arg_found = context.arg(1);
+
+    let event_types = if let Ok(arg) = arg_found.as_str() {
+        if arg == "--all" {
+            event_counter::event_types().to_vec()
         } else {
             vec![
                 EventType::MessageCreate,
                 EventType::PresenceUpdate,
                 EventType::TypingStart,
             ]
-        };
+        }
+    } else {
+        vec![
+            EventType::MessageCreate,
+            EventType::PresenceUpdate,
+            EventType::TypingStart,
+        ]
+    };
 
 
-        let counter = counter.lock().unwrap();
-        let count_map = counter.map(event_types);
-        drop(counter);
+    let counter = counter.lock().unwrap();
+    let count_map = counter.map(event_types);
+    drop(counter);
 
-        let mut total = 0;
+    let mut total = 0;
 
-        for (amount, names) in count_map.iter().rev() {
-            for name in names {
-                text.push_str(&format!("
+    for (amount, names) in count_map.iter().rev() {
+        for name in names {
+            text.push_str(&format!("
 - {}: {}", name, amount)[..]);
 
-                total += *amount;
-            }
+            total += *amount;
         }
-
-        text.push_str(&format!("\n\nTotal: {}", total)[..]);
-
-        let _msg = req!(context.say(text));
     }
 
-    pub fn help(&self, context: Context) {
-        let command = context.text(0);
+    text.push_str(&format!("\n\nTotal: {}", total)[..]);
 
-        // If no command was given, list the names of all commands
-        if command.is_empty() {
-            let mut names = "```\n".to_owned();
+    let _msg = req!(context.say(text));
+}
 
-            for key in self.help.keys() {
-                names.push_str("- ");
-                names.push_str(key);
-                names.push('\n');
+pub fn help(context: Context) {
+    let command = context.text(0);
+
+    // If no command was given, list the names of all commands
+    if command.is_empty() {
+        let mut names = "```\n".to_owned();
+
+        for key in HELP.keys() {
+            names.push_str("- ");
+            names.push_str(key);
+            names.push('\n');
+        }
+
+        names.push_str("```Use `help <command>` for info about a command");
+
+        let _msg = req!(context.pm_author(names));
+        let _msg = req!(context.say("Check your PMs!"));
+
+        return;
+    }
+
+    match HELP.get(&command[..]) {
+        Some(help) => {
+            let _msg = req!(context.say(*help));
+        },
+        None => {
+            let text = format!("Command `{}` not found", &command);
+
+            let _msg = req!(context.say(text));
+        },
+    }
+}
+
+pub fn invite(context: Context) {
+    let client_id = match env::var("DISCORD_CLIENT_ID") {
+        Ok(client_id) => client_id,
+        Err(_why) => {
+            error!("[base] No Client ID");
+            let _msg = req!(context.say("Error getting client id"));
+            return;
+        }
+    };
+
+    let _msg = context.say(format!(r#"Here's a link to invite me:
+https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=3222534
+"#, client_id));
+}
+
+pub fn ping(context: Context) {
+    let start = UTC::now();
+    let msg = req!(context.say("Ping!"));
+    let end = UTC::now();
+
+    let ms = {
+        let end_ms = end.timestamp_subsec_millis() as i64;
+        let start_ms = start.timestamp_subsec_millis() as i64;
+
+        end_ms - start_ms
+    };
+    let secs = (end.timestamp() - start.timestamp()) * 1000;
+    let diff = secs + ms;
+
+    let _msg = req!(context.edit(&msg, format!("Ping! `[{}ms]`", diff)));
+}
+
+pub fn role_info(context: Context) {
+    let name = context.text(0);
+
+    let role = {
+        let state = context.state.lock().unwrap();
+        let server = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server,
+            _ => {
+                let _msg = req!(context.say("Server not found"));
+                return;
+            },
+        };
+
+        let opt = if let Some(r) = context.message.mention_roles.first() {
+            server.roles.iter().find(|role| role.id == *r)
+        } else {
+            if name.is_empty() {
+                let _msg = req!(context.say("A role name must be given"));
+
+                return;
             }
 
-            names.push_str("```Use `help <command>` for info about a command");
+            server.roles.iter().find(|role| role.name == name)
+        };
 
-            let _msg = req!(context.pm_author(names));
-            let _msg = req!(context.say("Check your PMs!"));
+        if let Some(role) = opt {
+            role.clone()
+        } else {
+            let _msg = req!(context.say("Role not found"));
 
             return;
         }
+    };
 
-        match self.help.get(&command[..]) {
-            Some(help) => {
-                let _msg = req!(context.say(*help));
-            },
-            None => {
-                let text = format!("Command `{}` not found", &command);
+    let created_at = {
+        let secs = role.id.creation_date().sec;
 
-                let _msg = req!(context.say(text));
-            },
-        }
-    }
+        NaiveDateTime::from_timestamp(secs, 0)
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+    };
 
-    pub fn invite(&self, context: Context) {
-        let client_id = match env::var("DISCORD_CLIENT_ID") {
-            Ok(client_id) => client_id,
-            Err(_why) => {
-                error!("[base] No Client ID");
-                let _msg = req!(context.say("Error getting client id"));
-                return;
-            }
-        };
-
-        let _msg = context.say(format!(r#"Here's a link to invite me:
-https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=3222534
-"#, client_id));
-    }
-
-    pub fn ping(&self, context: Context) {
-        let start = UTC::now();
-        let msg = req!(context.say("Ping!"));
-        let end = UTC::now();
-
-        let ms = {
-            let end_ms = end.timestamp_subsec_millis() as i64;
-            let start_ms = start.timestamp_subsec_millis() as i64;
-
-            end_ms - start_ms
-        };
-        let secs = (end.timestamp() - start.timestamp()) * 1000;
-        let diff = secs + ms;
-
-        let _msg = req!(context.edit(&msg, format!("Ping! `[{}ms]`", diff)));
-    }
-
-    pub fn role_info(&self, context: Context) {
-        let name = context.text(0);
-
-        let role = {
-            let state = context.state.lock().unwrap();
-            let server = match state.find_channel(&context.message.channel_id) {
-                Some(ChannelRef::Public(server, _channel)) => server,
-                _ => {
-                    let _msg = req!(context.say("Server not found"));
-                    return;
-                },
-            };
-
-            let opt = if let Some(r) = context.message.mention_roles.first() {
-                server.roles.iter().find(|role| role.id == *r)
-            } else {
-                if name.is_empty() {
-                    let _msg = req!(context.say("A role name must be given"));
-
-                    return;
-                }
-
-                server.roles.iter().find(|role| role.name == name)
-            };
-
-            if let Some(role) = opt {
-                role.clone()
-            } else {
-                let _msg = req!(context.say("Role not found"));
-
-                return;
-            }
-        };
-
-        let created_at = {
-            let secs = role.id.creation_date().sec;
-
-            NaiveDateTime::from_timestamp(secs, 0)
-                .format("%Y-%m-%d %H:%M:%S")
-                .to_string()
-        };
-
-        let info = format!(r#"```xl
+    let info = format!(r#"```xl
        Name: {}
          ID: {}
     Hoisted: {}
@@ -659,59 +655,59 @@ Mentionable: {}
                       role.mentionable,
                       created_at);
 
-        let _msg = req!(context.say(info));
-    }
+    let _msg = req!(context.say(info));
+}
 
-    pub fn server_info(&self, context: Context) {
-        let state = context.state.lock().unwrap();
-        let server = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
-            _ => {
-                let _msg = req!(context.say("Server not found"));
+pub fn server_info(context: Context) {
+    let state = context.state.lock().unwrap();
+    let server = match state.find_channel(&context.message.channel_id) {
+        Some(ChannelRef::Public(server, _channel)) => server,
+        _ => {
+            let _msg = req!(context.say("Server not found"));
 
-                return;
-            },
-        };
+            return;
+        },
+    };
 
-        let owner_info = {
-            let mut owner_info = None;
+    let owner_info = {
+        let mut owner_info = None;
 
-            'servers: for server_iter in state.servers() {
-                if server_iter.id != server.id {
-                    continue;
-                }
-
-                for member in &server_iter.members {
-                    owner_info = Some(format!("{}#{}",
-                                              member.user.name,
-                                              member.user.discriminator));
-
-                    break 'servers;
-                }
+        'servers: for server_iter in state.servers() {
+            if server_iter.id != server.id {
+                continue;
             }
 
-            if let Some(owner_info) = owner_info {
-                owner_info
-            } else {
-                String::from("Unknown")
-            }
-        };
+            for member in &server_iter.members {
+                owner_info = Some(format!("{}#{}",
+                                          member.user.name,
+                                          member.user.discriminator));
 
-        let mut channels = [0, 0];
-
-        for channel in &server.channels {
-            match channel.kind {
-                ChannelType::Text => {
-                    channels[0] += 1;
-                },
-                ChannelType::Voice => {
-                    channels[1] += 1;
-                },
-                _ => {},
+                break 'servers;
             }
         }
 
-        let text = format!(r#"```xl
+        if let Some(owner_info) = owner_info {
+            owner_info
+        } else {
+            String::from("Unknown")
+        }
+    };
+
+    let mut channels = [0, 0];
+
+    for channel in &server.channels {
+        match channel.kind {
+            ChannelType::Text => {
+                channels[0] += 1;
+            },
+            ChannelType::Voice => {
+                channels[1] += 1;
+            },
+            _ => {},
+        }
+    }
+
+    let text = format!(r#"```xl
 Name: {}
 ID: {}
 Owner: {}
@@ -729,102 +725,100 @@ Icon: {}```"#, server.name,
                server.id.creation_date().sec,
                server.icon_url().unwrap_or("N/A".to_owned()));
 
-        let _msg = req!(context.say(text));
+    let _msg = req!(context.say(text));
+}
+
+pub fn set_status(context: Context) {
+    let author_var = if let Ok(var) = env::var("AUTHOR_ID") {
+        var
+    } else {
+        let _msg = req!(context.say("Error setting status"));
+        error!("[env] AUTHOR_ID env var not set");
+
+        return;
+    };
+
+    let author_id = if let Ok(id) = author_var.parse::<u64>() {
+        id
+    } else {
+        let _msg = req!(context.reply("Error setting status"));
+
+        return;
+    };
+
+    if context.message.author.id.0 != author_id {
+        let _msg = req!(context.reply("Only the bot owner can set status"));
+
+        return;
     }
 
-    pub fn set_status(&self, context: Context) {
-        let author_var = if let Ok(var) = env::var("AUTHOR_ID") {
-            var
-        } else {
-            let _msg = req!(context.say("Error setting status"));
-            error!("[env] AUTHOR_ID env var not set");
+    let new_status = context.text(0);
 
-            return;
-        };
+    let conn = context.conn.lock().unwrap();
+    conn.set_game_name(new_status);
+}
 
-        let author_id = if let Ok(id) = author_var.parse::<u64>() {
-            id
-        } else {
-            let _msg = req!(context.reply("Error setting status"));
+pub fn user_info(context: Context) {
+    let arg = context.arg(1);
 
-            return;
-        };
+    let user = if let Some(user) = context.message.mentions.get(0) {
+        user.clone()
+    } else if let Ok(info) = arg.as_str() {
+        let (name, discriminator) = if let Some(pos) = info.find('#') {
+            let split = info.split_at(pos);
 
-        if context.message.author.id.0 != author_id {
-            let _msg = req!(context.reply("Only the bot owner can set status"));
-
-            return;
-        }
-
-        let new_status = context.text(0);
-
-        let conn = context.conn.lock().unwrap();
-        conn.set_game_name(new_status);
-    }
-
-    pub fn user_info(&self, context: Context) {
-        let arg = context.arg(1);
-
-        let user = if let Some(user) = context.message.mentions.get(0) {
-            user.clone()
-        } else if let Ok(info) = arg.as_str() {
-            let (name, discriminator) = if let Some(pos) = info.find('#') {
-                let split = info.split_at(pos);
-
-                println!("{:?}", split);
-
-                let discrim = match split.1.replace("#", "").parse::<u16>() {
-                    Ok(discrim) => discrim,
-                    Err(_why) => {
-                        let text = "Error retrieving user data";
-                        let _msg = req!(context.say(text));
-
-                        return;
-                    },
-                };
-
-                (split.0, Some(discrim))
-            } else {
-                (info, None)
-            };
-
-            let state = context.state.lock().unwrap();
-            let server = match state.find_channel(&context.message.channel_id) {
-                Some(ChannelRef::Public(server, _channel)) => server,
-                _ => {
-                    let text = "Error finding user data";
+            let discrim = match split.1.replace("#", "").parse::<u16>() {
+                Ok(discrim) => discrim,
+                Err(_why) => {
+                    let text = "Error retrieving user data";
                     let _msg = req!(context.say(text));
 
                     return;
                 },
             };
 
-            let mut member_found = None;
-
-            for member in &server.members {
-                if if let Some(discrim) = discriminator {
-                    member.user.discriminator == discrim && member.user.name == name
-                } else {
-                    member.user.name == name
-                } {
-                    member_found = Some(member.clone());
-
-                    break;
-                }
-            }
-
-            if let Some(member) = member_found {
-                member.user.clone()
-            } else {
-                let _msg = req!(context.say("Error finding user"));
-
-                return;
-            }
+            (split.0, Some(discrim))
         } else {
-            context.message.author.clone()
+            (info, None)
         };
 
-        let mut text = format!(r#"```xl
+        let state = context.state.lock().unwrap();
+        let server = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server,
+            _ => {
+                let text = "Error finding user data";
+                let _msg = req!(context.say(text));
+
+                return;
+            },
+        };
+
+        let mut member_found = None;
+
+        for member in &server.members {
+            if if let Some(discrim) = discriminator {
+                member.user.discriminator == discrim && member.user.name == name
+            } else {
+                member.user.name == name
+            } {
+                member_found = Some(member.clone());
+
+                break;
+            }
+        }
+
+        if let Some(member) = member_found {
+            member.user.clone()
+        } else {
+            let _msg = req!(context.say("Error finding user"));
+
+            return;
+        }
+    } else {
+        context.message.author.clone()
+    };
+
+    let mut text = format!(r#"```xl
      Username: {}
 Discriminator: {}
            ID: {}
@@ -833,86 +827,86 @@ Discriminator: {}
                      user.id,
                      user.avatar_url().unwrap_or("N/A".to_owned()));
 
-        let state = context.state.lock().unwrap();
-        for server in state.servers() {
-            let channel_found = server.channels.iter().any(|channel| {
-                channel.id == context.message.channel_id
-            });
+    let state = context.state.lock().unwrap();
+    for server in state.servers() {
+        let channel_found = server.channels.iter().any(|channel| {
+            channel.id == context.message.channel_id
+        });
 
-            if !channel_found {
-                continue;
+        if !channel_found {
+            continue;
+        }
+
+        let mut found = None;
+
+        for member in &server.members {
+            if member.user.id == user.id {
+                found = Some(member);
+
+                break;
+            }
+        }
+
+        if let Some(member) = found {
+            if let Some(ref nick) = member.nick {
+                text.push_str(&format!(r#"
+     Nickname: {}"#, nick));
             }
 
-            let mut found = None;
+            let mut presence_found = None;
 
-            for member in &server.members {
-                if member.user.id == user.id {
-                    found = Some(member);
+            for presence in &server.presences {
+                if presence.user_id == member.user.id {
+                    presence_found = Some(presence);
 
                     break;
                 }
             }
 
-            if let Some(member) = found {
-                if let Some(ref nick) = member.nick {
-                    text.push_str(&format!(r#"
-     Nickname: {}"#, nick));
+            let mut role_names = vec![];
+
+            for role in &server.roles {
+                if member.roles.contains(&role.id) {
+                    role_names.push(&role.name[..]);
                 }
+            }
 
-                let mut presence_found = None;
+            let role_list: String = role_names.join(", ");
 
-                for presence in &server.presences {
-                    if presence.user_id == member.user.id {
-                        presence_found = Some(presence);
-
-                        break;
-                    }
-                }
-
-                let mut role_names = vec![];
-
-                for role in &server.roles {
-                    if member.roles.contains(&role.id) {
-                        role_names.push(&role.name[..]);
-                    }
-                }
-
-                let role_list: String = role_names.join(", ");
-
-                let (s_game, s_name) = if let Some(presence) = presence_found {
-                    let status_game = if let Some(ref game) = presence.game {
-                        let kind = match game.kind {
-                            GameType::Playing => "Playing",
-                            GameType::Streaming => "Streaming",
-                        };
-
-                        let url = game.url.as_ref()
-                            .map(|u| format!("({})", u))
-                            .unwrap_or_default();
-
-                        format!("{} {} {}", kind, game.name, url)
-                    } else {
-                        "N/A".to_owned()
+            let (s_game, s_name) = if let Some(presence) = presence_found {
+                let status_game = if let Some(ref game) = presence.game {
+                    let kind = match game.kind {
+                        GameType::Playing => "Playing",
+                        GameType::Streaming => "Streaming",
                     };
 
-                    let status_name = match presence.status {
-                        OnlineStatus::Idle => "Idle",
-                        OnlineStatus::Offline => "Offline",
-                        OnlineStatus::Online => "Online",
-                    };
+                    let url = game.url.as_ref()
+                        .map(|u| format!("({})", u))
+                        .unwrap_or_default();
 
-                    (status_game, status_name)
+                    format!("{} {} {}", kind, game.name, url)
                 } else {
-                    (String::from("N/A"), "")
+                    "N/A".to_owned()
                 };
 
-                let time = user.id.creation_date().sec;
+                let status_name = match presence.status {
+                    OnlineStatus::Idle => "Idle",
+                    OnlineStatus::Offline => "Offline",
+                    OnlineStatus::Online => "Online",
+                };
 
-                let created_at = NaiveDateTime::from_timestamp(time, 0)
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string();
+                (status_game, status_name)
+            } else {
+                (String::from("N/A"), "")
+            };
 
-                text.push_str(&format!(r#"
+            let time = user.id.creation_date().sec;
+
+            let created_at = NaiveDateTime::from_timestamp(time, 0)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string();
+
+            text.push_str(&format!(r#"
        Status: {}
          Game: {}
       Created: {}
@@ -922,10 +916,9 @@ Discriminator: {}
                         created_at,
                         &member.joined_at[..19].replace('T', " "),
                         role_list)[..]);
-            }
         }
-        drop(state);
-
-        let _msg = req!(context.say(text));
     }
+    drop(state);
+
+    let _msg = req!(context.say(text));
 }

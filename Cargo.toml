@@ -11,6 +11,7 @@ env_logger = "0.3"
 forecast_io = { git = "https://github.com/zeyla/forecast.io.rs.git" }
 hummingbird = "0.1"
 hyper = "> 0.8"
+lazy_static = "0.1"
 log = "0.3"
 postgres = "0.11.11"
 rand = "0.3"

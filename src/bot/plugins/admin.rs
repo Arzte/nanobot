@@ -18,82 +18,74 @@ use discord::model::permissions;
 use discord::{ChannelRef, GetMessages};
 use ::prelude::*;
 
-pub struct Admin;
+pub fn purge(context: Context) {
+    if !context.arg(1).exists() {
+        let _ = req!(context.say("Must provide message count to delete"));
 
-impl Admin {
-    pub fn new() -> Admin {
-        Admin
+        return;
     }
 
-    pub fn purge(&self, context: Context) {
-        if !context.arg(1).exists() {
-            let _ = req!(context.say("Must provide message count to delete"));
+    // Check that the person has the 'MANAGE_MESSAGES' permission
+    let state = context.state.lock().unwrap();
+    let member_perms = match state.find_channel(&context.message.channel_id) {
+        Some(ChannelRef::Public(server, _channel)) => {
+            server.permissions_for(context.message.channel_id,
+                                   context.message.author.id)
+        },
+        _ => {
+            let _msg = req!(context.say("Could not find server"));
 
             return;
-        }
+        },
+    };
+    drop(state);
 
-        // Check that the person has the 'MANAGE_MESSAGES' permission
-        let state = context.state.lock().unwrap();
-        let member_perms = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => {
-                server.permissions_for(context.message.channel_id,
-                                       context.message.author.id)
-            },
-            _ => {
-                let _msg = req!(context.say("Could not find server"));
+    if !member_perms.contains(permissions::MANAGE_MESSAGES) {
+        let _msg = req!(context.say("You must be allowed to manage messages to be able to use this command"));
 
-                return;
-            },
-        };
-        drop(state);
+        return;
+    }
 
-        if !member_perms.contains(permissions::MANAGE_MESSAGES) {
-            let _msg = req!(context.say("You must be allowed to manage messages to be able to use this command"));
+    let amount = req!(context.arg(1).as_u64());
 
-            return;
-        }
+    if amount > 100 {
+        let _msg = req!(context.say("Can only purge 100 messages"));
 
-        let amount = req!(context.arg(1).as_u64());
+        return;
+    }
 
-        if amount > 100 {
-            let _msg = req!(context.say("Can only purge 100 messages"));
+    if amount < 2 {
+        let _msg = req!(context.say("Must purge at least 2 messages"));
 
-            return;
-        }
+        return;
+    }
 
-        if amount < 2 {
-            let _msg = req!(context.say("Must purge at least 2 messages"));
-
-            return;
-        }
-
-        let discord = context.discord.lock().unwrap();
-        let messages = match discord.get_messages(
-            context.message.channel_id,
-            GetMessages::Before(context.message.id),
-            Some(amount)
+    let discord = context.discord.lock().unwrap();
+    let messages = match discord.get_messages(
+        context.message.channel_id,
+        GetMessages::Before(context.message.id),
+        Some(amount)
         ) {
-            Ok(messages) => messages,
-            Err(why) => {
-                let text = format!("Error getting messages: {:?}", why);
-                let _msg = req!(context.say(text));
-
-                return;
-            },
-        };
-
-        let mut message_ids = vec![];
-
-        for message in messages {
-            message_ids.push(message.id);
-        }
-
-        let deletion = discord.delete_messages(context.message.channel_id,
-                                               &message_ids);
-
-        if let Err(why) = deletion {
-            let text = format!("Error deleting messages: {:?}", why);
+        Ok(messages) => messages,
+        Err(why) => {
+            let text = format!("Error getting messages: {:?}", why);
             let _msg = req!(context.say(text));
-        }
+
+            return;
+        },
+    };
+
+    let mut message_ids = vec![];
+
+    for message in messages {
+        message_ids.push(message.id);
+    }
+
+    let deletion = discord.delete_messages(context.message.channel_id,
+                                           &message_ids);
+
+    if let Err(why) = deletion {
+        let text = format!("Error deleting messages: {:?}", why);
+        let _msg = req!(context.say(text));
     }
 }

@@ -25,172 +25,163 @@ use ::bot::Uptime;
 use ::ext::google_maps;
 use ::prelude::*;
 
+static EMOJIS: [&'static str; 32] = [
+    "blush",
+    "cop",
+    "cry",
+    "disappointed",
+    "dizzy",
+    "fearful",
+    "flushed",
+    "frowning",
+    "grimacing",
+    "grin",
+    "heart_eyes",
+    "innocent",
+    "kissing",
+    "kissing_closed_eyes",
+    "laughing",
+    "man_with_turban",
+    "neutral_face",
+    "open_mouth",
+    "poop",
+    "rage",
+    "relaxed",
+    "scream",
+    "sleeping",
+    "smile",
+    "smiley",
+    "smirk",
+    "stuck_out_tongue",
+    "stuck_out_tongue_closed_eyes",
+    "stuck_out_tongue_winking_eye",
+    "weary",
+    "wink",
+    "yum",
+];
+
+static AESTHETIC_CHARS: [(char, &'static str); 58] = [
+    ('A', "Ａ"),
+    ('B', "Ｂ"),
+    ('C', "Ｃ"),
+    ('D', "Ｄ"),
+    ('E', "Ｅ"),
+    ('F', "Ｆ"),
+    ('G', "Ｇ"),
+    ('H', "Ｈ"),
+    ('I', "Ｉ"),
+    ('J', "Ｊ"),
+    ('K', "Ｋ"),
+    ('L', "Ｌ"),
+    ('M', "Ｍ"),
+    ('N', "Ｎ"),
+    ('O', "Ｏ"),
+    ('P', "Ｐ"),
+    ('Q', "Ｑ"),
+    ('R', "Ｒ"),
+    ('S', "Ｓ"),
+    ('T', "Ｔ"),
+    ('U', "Ｕ"),
+    ('V', "Ｖ"),
+    ('W', "Ｗ"),
+    ('X', "Ｘ"),
+    ('Y', "Ｙ"),
+    ('Z', "Ｚ"),
+    ('[', "［"),
+    ('\\', "＼"),
+    (']', "］"),
+    ('^', "＾"),
+    ('_', "＿"),
+    ('`', "｀"),
+    ('a', "ａ"),
+    ('b', "ｂ"),
+    ('c', "ｃ"),
+    ('d', "ｄ"),
+    ('e', "ｅ"),
+    ('f', "ｆ"),
+    ('g', "ｇ"),
+    ('h', "ｈ"),
+    ('i', "ｉ"),
+    ('j', "ｊ"),
+    ('k', "ｋ"),
+    ('l', "ｌ"),
+    ('m', "ｍ"),
+    ('n', "ｎ"),
+    ('o', "ｏ"),
+    ('p', "ｐ"),
+    ('q', "ｑ"),
+    ('r', "ｒ"),
+    ('s', "ｓ"),
+    ('t', "ｔ"),
+    ('u', "ｕ"),
+    ('v', "ｖ"),
+    ('w', "ｗ"),
+    ('x', "ｘ"),
+    ('y', "ｙ"),
+    ('z', "ｚ"),
+];
+
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Aesthetic {
     Bold,
     Caps,
 }
 
-pub struct Misc<'a> {
-    aesthetic_chars: Vec<(char, &'a str)>,
-    emojis: Vec<&'a str>,
+pub fn aesthetic(context: Context, modifiers: Vec<Aesthetic>) {
+    let mut text = context.text(0);
+
+    if text.is_empty() {
+        let _msg = req!(context.say("Nothing to aestheticize"));
+
+        return;
+    }
+
+    if modifiers.contains(&Aesthetic::Caps) {
+        text.make_ascii_uppercase();
+    }
+
+    for chars in AESTHETIC_CHARS.iter() {
+        text = text.replace(chars.0, &chars.1[..]);
+    }
+
+    text = text.replace(' ', "  ");
+
+    if modifiers.contains(&Aesthetic::Bold) {
+        text.insert(0, '*');
+        text.insert(0, '*');
+        text.push('*');
+        text.push('*');
+    }
+
+    let _msg = req!(context.say(text));
 }
 
-impl<'a> Misc<'a> {
-    pub fn new<'b>() -> Misc<'b> {
-        Misc {
-            aesthetic_chars: vec![
-                ('A', "Ａ"),
-                ('B', "Ｂ"),
-                ('C', "Ｃ"),
-                ('D', "Ｄ"),
-                ('E', "Ｅ"),
-                ('F', "Ｆ"),
-                ('G', "Ｇ"),
-                ('H', "Ｈ"),
-                ('I', "Ｉ"),
-                ('J', "Ｊ"),
-                ('K', "Ｋ"),
-                ('L', "Ｌ"),
-                ('M', "Ｍ"),
-                ('N', "Ｎ"),
-                ('O', "Ｏ"),
-                ('P', "Ｐ"),
-                ('Q', "Ｑ"),
-                ('R', "Ｒ"),
-                ('S', "Ｓ"),
-                ('T', "Ｔ"),
-                ('U', "Ｕ"),
-                ('V', "Ｖ"),
-                ('W', "Ｗ"),
-                ('X', "Ｘ"),
-                ('Y', "Ｙ"),
-                ('Z', "Ｚ"),
-                ('[', "［"),
-                ('\\', "＼"),
-                (']', "］"),
-                ('^', "＾"),
-                ('_', "＿"),
-                ('`', "｀"),
-                ('a', "ａ"),
-                ('b', "ｂ"),
-                ('c', "ｃ"),
-                ('d', "ｄ"),
-                ('e', "ｅ"),
-                ('f', "ｆ"),
-                ('g', "ｇ"),
-                ('h', "ｈ"),
-                ('i', "ｉ"),
-                ('j', "ｊ"),
-                ('k', "ｋ"),
-                ('l', "ｌ"),
-                ('m', "ｍ"),
-                ('n', "ｎ"),
-                ('o', "ｏ"),
-                ('p', "ｐ"),
-                ('q', "ｑ"),
-                ('r', "ｒ"),
-                ('s', "ｓ"),
-                ('t', "ｔ"),
-                ('u', "ｕ"),
-                ('v', "ｖ"),
-                ('w', "ｗ"),
-                ('x', "ｘ"),
-                ('y', "ｙ"),
-                ('z', "ｚ"),
-            ],
-            emojis: vec![
-                "blush",
-                "cop",
-                "cry",
-                "disappointed",
-                "dizzy",
-                "fearful",
-                "flushed",
-                "frowning",
-                "grimacing",
-                "grin",
-                "heart_eyes",
-                "innocent",
-                "kissing",
-                "kissing_closed_eyes",
-                "laughing",
-                "man_with_turban",
-                "neutral_face",
-                "open_mouth",
-                "poop",
-                "rage",
-                "relaxed",
-                "scream",
-                "sleeping",
-                "smile",
-                "smiley",
-                "smirk",
-                "stuck_out_tongue",
-                "stuck_out_tongue_closed_eyes",
-                "stuck_out_tongue_winking_eye",
-                "weary",
-                "wink",
-                "yum",
-            ],
-        }
-    }
+pub fn hello(context: Context) {
+    let greetings = vec![
+        format!("Hello {}", context.message.author.name),
+        format!("Hey {}!", context.message.author.name),
+        "Hello fella!".to_owned(),
+        "Hey fella!".to_owned(),
+        format!("What's up {}?", context.message.author.name),
+        format!("Selamat pagi, {}", context.message.author.name),
+        format!("G'day {}!", context.message.author.name),
+    ];
 
-    pub fn aesthetic(&self, context: Context, modifiers: Vec<Aesthetic>) {
-        let mut text = context.text(0);
+    let _msg = match thread_rng().choose(&greetings) {
+        Some(greeting) => req!(context.say(&greeting[..])),
+        None => req!(context.reply("No greeting found")),
+    };
+}
 
-        if text.is_empty() {
-            let _msg = req!(context.say("Nothing to aestheticize"));
+pub fn mfw(context: Context) {
+    let _msg = match thread_rng().choose(&EMOJIS) {
+        Some(emoji) => req!(context.say(&emoji[..])),
+        None => req!(context.reply("No emoji found")),
+    };
+}
 
-            return;
-        }
-
-        if modifiers.contains(&Aesthetic::Caps) {
-            text.make_ascii_uppercase();
-        }
-
-        for chars in &self.aesthetic_chars {
-            text = text.replace(chars.0, &chars.1[..]);
-        }
-
-        text = text.replace(' ', "  ");
-
-        if modifiers.contains(&Aesthetic::Bold) {
-            text.insert(0, '*');
-            text.insert(0, '*');
-            text.push('*');
-            text.push('*');
-        }
-
-        let _msg = req!(context.say(text));
-    }
-
-    pub fn hello(&self, context: Context) {
-        let greetings = vec![
-            format!("Hello {}", context.message.author.name),
-            format!("Hey {}!", context.message.author.name),
-            "Hello fella!".to_owned(),
-            "Hey fella!".to_owned(),
-            format!("What's up {}?", context.message.author.name),
-            format!("Selamat pagi, {}", context.message.author.name),
-            format!("G'day {}!", context.message.author.name),
-        ];
-
-        let _msg = match thread_rng().choose(&greetings) {
-            Some(greeting) => req!(context.say(&greeting[..])),
-            None => req!(context.reply("No greeting found")),
-        };
-    }
-
-    pub fn mfw(&self, context: Context) {
-        let _msg = match thread_rng().choose(&self.emojis) {
-            Some(emoji) => req!(context.say(&emoji[..])),
-            None => req!(context.reply("No emoji found")),
-        };
-    }
-
-    pub fn pi(&self, context: Context) {
-        let mut pi = r#"
+pub fn pi(context: Context) {
+    let mut pi = r#"
              1415926535897932384626433832795028841971693993751058209749445923078
              1640628620899862803482534211706798214808651328230664709384460955058
              2231725359408128481117450284102701938521105559644622948954930381964
@@ -208,216 +199,215 @@ impl<'a> Misc<'a> {
              75937519577818577805321712268066130019278766111959092164201989
              "#.replace(' ', "").replace("\n", "");
 
-        let length = if let Ok(v) = context.arg(1).as_u64() {
-            v as usize
-        } else {
-            let _msg = req!(context.say("Require a positive whole digit count"));
+    let length = if let Ok(v) = context.arg(1).as_u64() {
+        v as usize
+    } else {
+        let _msg = req!(context.say("Require a positive whole digit count"));
 
-            return;
-        };
+        return;
+    };
 
-        if length > 1000 {
-            let _msg = req!(context.say("Maximum 1000 digits"));
+    if length > 1000 {
+        let _msg = req!(context.say("Maximum 1000 digits"));
 
-            return;
-        }
-
-        pi.truncate(length);
-
-        let _msg = req!(context.say(pi));
+        return;
     }
 
-    pub fn say(&self, context: Context) {
-        let text = context.text(0);
+    pi.truncate(length);
 
-        if text.is_empty() {
-            return;
-        }
+    let _msg = req!(context.say(pi));
+}
 
-        let _msg = req!(context.say(text));
+pub fn say(context: Context) {
+    let text = context.text(0);
+
+    if text.is_empty() {
+        return;
     }
 
-    pub fn uptime(&self, context: Context, uptime: Arc<Mutex<Uptime>>) {
-        let text = {
-            let uptime = uptime.lock().unwrap();
-            let boot = &uptime.boot.to_rfc3339()[..19];
-            let connection = &uptime.boot.to_rfc3339()[..19];
+    let _msg = req!(context.say(text));
+}
 
-            format!(r#"```xl
+pub fn uptime(context: Context, uptime: Arc<Mutex<Uptime>>) {
+    let text = {
+        let uptime = uptime.lock().unwrap();
+        let boot = &uptime.boot.to_rfc3339()[..19];
+        let connection = &uptime.boot.to_rfc3339()[..19];
+
+        format!(r#"```xl
             Booted: {} UTC
 Current Connection: {} UTC```"#, boot, connection)
-        };
+    };
 
-        let _msg = req!(context.say(text));
+    let _msg = req!(context.say(text));
+}
+
+pub fn weather(context: Context) {
+    let first_arg = context.arg(1);
+
+    let save = if let Ok(arg) = first_arg.as_str() {
+        arg == "save"
+    } else {
+        false
+    };
+
+    let full_text = context.text(0);
+
+    let location_name = if !first_arg.exists() {
+        let state = context.state.lock().unwrap();
+        let server_id = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server.id,
+            _ => {
+                let _msg = req!(context.say("Could not find server"));
+
+                return;
+            },
+        };
+        drop(state);
+
+        let db = context.db.lock().unwrap();
+        let retrieval = db.query(
+            "select weather_location from members where server_id = $1 and user_id = $2",
+            &[&(server_id.0 as i64), &(context.message.author.id.0 as i64)]
+        );
+
+        match retrieval {
+            Ok(ref rows) if !rows.is_empty() => {
+                let member = rows.get(0);
+
+                match member.get(0) {
+                    Some(location) => {
+                        let location: String = location;
+                        location.clone()
+                    },
+                    None => {
+                        let _msg = req!(context.say("You do not have a location saved on this server!"));
+
+                        return;
+                    },
+                }
+            },
+            Ok(_rows) => {
+                let _msg = req!(context.say("Member data not found"));
+
+                return;
+            },
+            Err(why) => {
+                warn!("[weather] err getting user: {:?}", why);
+
+                let _msg = req!(context.say("Error getting member data"));
+
+                return;
+            },
+        }
+    } else if save {
+        context.text(1)
+    } else {
+        full_text
+    };
+
+    if location_name.is_empty() {
+        let _msg = req!(context.say("No location name given"));
     }
 
-    pub fn weather(&self, context: Context) {
-        let first_arg = context.arg(1);
+    let msg = req!(context.say("Retrieving the forecast..."));
 
-        let save = if let Ok(arg) = first_arg.as_str() {
-            arg == "save"
-        } else {
-            false
-        };
+    let location_data = match google_maps::get_address(location_name) {
+        Ok(location_data) => location_data,
+        Err(_why) => {
+            let _msg = req!(context.edit(&msg, "Error retrieving location data"));
 
-        let full_text = context.text(0);
+            return;
+        },
+    };
 
-        let location_name = if !first_arg.exists() {
-            let state = context.state.lock().unwrap();
-            let server_id = match state.find_channel(&context.message.channel_id) {
-                Some(ChannelRef::Public(server, _channel)) => server.id,
-                _ => {
-                    let _msg = req!(context.say("Could not find server"));
-
-                    return;
-                },
-            };
-            drop(state);
-
-            let db = context.db.lock().unwrap();
-            let retrieval = db.query(
-                "select weather_location from members where
-                 server_id = $1 and user_id = $2",
-                &[&(server_id.0 as i64), &(context.message.author.id.0 as i64)]
-            );
-
-            match retrieval {
-                Ok(ref rows) if !rows.is_empty() => {
-                    let member = rows.get(0);
-
-                    match member.get(0) {
-                        Some(location) => {
-                            let location: String = location;
-                            location.clone()
-                        },
-                        None => {
-                            let _msg = req!(context.say("You do not have a location saved on this server!"));
-
-                            return;
-                        },
-                    }
-                },
-                Ok(_rows) => {
-                    let _msg = req!(context.say("Member data not found"));
-
-                    return;
-                },
-                Err(why) => {
-                    warn!("[weather] err getting user: {:?}", why);
-
-                    let _msg = req!(context.say("Error getting member data"));
-
-                    return;
-                },
-            }
-        } else if save {
-            context.text(1)
-        } else {
-            full_text
-        };
-
-        if location_name.is_empty() {
-            let _msg = req!(context.say("No location name given"));
-        }
-
-        let msg = req!(context.say("Retrieving the forecast..."));
-
-        let location_data = match google_maps::get_address(location_name) {
-            Ok(location_data) => location_data,
-            Err(_why) => {
-                let _msg = req!(context.edit(&msg, "Error retrieving location data"));
-
-                return;
-            },
-        };
-
-        let (lat, long, name) = match location_data.results.get(0) {
-            Some(result) => (
-                result.geometry.location.lat,
-                result.geometry.location.lng,
-                result.address_components.get(0).unwrap().long_name.clone(),
+    let (lat, long, name) = match location_data.results.get(0) {
+        Some(result) => (
+            result.geometry.location.lat,
+            result.geometry.location.lng,
+            result.address_components.get(0).unwrap().long_name.clone(),
             ),
-            None => {
-                let _msg = req!(context.edit(&msg, "No results found for location"));
+        None => {
+            let _msg = req!(context.edit(&msg, "No results found for location"));
 
-                return;
-            },
-        };
+            return;
+        },
+    };
 
-        let token = match env::var("FORECAST_TOKEN") {
-            Ok(token) => token,
-            Err(why) => {
-                warn!("[weather] FORECAST_TOKEN not set: {:?}", why);
+    let token = match env::var("FORECAST_TOKEN") {
+        Ok(token) => token,
+        Err(why) => {
+            warn!("[weather] FORECAST_TOKEN not set: {:?}", why);
 
-                let _msg = req!(context.edit(&msg, "Forecast data misconfigured"));
+            let _msg = req!(context.edit(&msg, "Forecast data misconfigured"));
 
-                return;
-            },
-        };
+            return;
+        },
+    };
 
-        let res = forecast_io::get_forecast_with_options(token, lat, long, |o| {
-            o.unit(Unit::Si)
-        });
+    let res = forecast_io::get_forecast_with_options(token, lat, long, |o| {
+        o.unit(Unit::Si)
+    });
 
-        let forecast = match res {
-            Ok(forecast) => forecast,
-            Err(why) => {
-                warn!("[forecast] Err getting forecast: {:?}", why);
-                let _msg = req!(context.edit(&msg, "Could not retrieve the forecast"));
+    let forecast = match res {
+        Ok(forecast) => forecast,
+        Err(why) => {
+            warn!("[forecast] Err getting forecast: {:?}", why);
+            let _msg = req!(context.edit(&msg, "Could not retrieve the forecast"));
 
-                return;
-            },
-        };
+            return;
+        },
+    };
 
-        let currently = match forecast.currently {
-            Some(currently) => currently,
-            None => {
-                let _msg = req!(context.edit(&msg, "Could not retrieve the forecast"));
+    let currently = match forecast.currently {
+        Some(currently) => currently,
+        None => {
+            let _msg = req!(context.edit(&msg, "Could not retrieve the forecast"));
 
-                return;
-            },
-        };
+            return;
+        },
+    };
 
-        let icon = match currently.icon {
-            Some(icon) => match icon {
-                Icon::ClearDay => ":sunny:",
-                Icon::ClearNight => ":night_with_stars:",
-                Icon::Cloudy => ":cloudy:",
-                Icon::Fog => ":foggy:",
-                Icon::Hail | Icon::Sleet | Icon::Snow => ":cloud_snow:",
-                Icon::PartlyCloudyDay => ":partly_sunny:",
-                Icon::PartlyCloudyNight => ":cloud:",
-                Icon::Rain => ":cloud_rain:",
-                Icon::Thunderstorm => ":thunder_cloud_rain:",
-                Icon::Tornado => ":cloud_tornado:",
-                Icon::Wind => ":wind_blowing_face:",
-            },
-            None => "N/A",
-        };
-        let current_time = {
-            if let Some(offset) = forecast.offset {
-                let timestamp = currently.time as i64 + offset as i64;
+    let icon = match currently.icon {
+        Some(icon) => match icon {
+            Icon::ClearDay => ":sunny:",
+            Icon::ClearNight => ":night_with_stars:",
+            Icon::Cloudy => ":cloudy:",
+            Icon::Fog => ":foggy:",
+            Icon::Hail | Icon::Sleet | Icon::Snow => ":cloud_snow:",
+            Icon::PartlyCloudyDay => ":partly_sunny:",
+            Icon::PartlyCloudyNight => ":cloud:",
+            Icon::Rain => ":cloud_rain:",
+            Icon::Thunderstorm => ":thunder_cloud_rain:",
+            Icon::Tornado => ":cloud_tornado:",
+            Icon::Wind => ":wind_blowing_face:",
+        },
+        None => "N/A",
+    };
+    let current_time = {
+        if let Some(offset) = forecast.offset {
+            let timestamp = currently.time as i64 + offset as i64;
 
-                NaiveDateTime::from_timestamp(timestamp, 0)
-                    .format("%H:%M%p")
-                    .to_string()
-            } else {
-                "N/A".to_owned()
-            }
-        };
-        let temp = {
-            if let Some(temp_c) = currently.temperature {
-                let temp_f = (((temp_c * 9f64) / 5f64) + 32f64) as i16;
+            NaiveDateTime::from_timestamp(timestamp, 0)
+                .format("%H:%M%p")
+                .to_string()
+        } else {
+            "N/A".to_owned()
+        }
+    };
+    let temp = {
+        if let Some(temp_c) = currently.temperature {
+            let temp_f = (((temp_c * 9f64) / 5f64) + 32f64) as i16;
 
-                format!("{}C ({}F)", temp_c as i16, temp_f)
-            } else {
-                "N/A".to_owned()
-            }
-        };
-        let probability = currently.precip_probability
-            .map_or(0u8, |v| v as u8);
+            format!("{}C ({}F)", temp_c as i16, temp_f)
+        } else {
+            "N/A".to_owned()
+        }
+    };
+    let probability = currently.precip_probability
+        .map_or(0u8, |v| v as u8);
 
-        let text = format!(r#"{} **{}**
+    let text = format!(r#"{} **{}**
 :clock1: {}
 Currently: {}
 {}
@@ -428,6 +418,5 @@ Rain: {}%"#, icon,
              temp,
              probability);
 
-        let _msg = req!(context.edit(&msg, text));
-    }
+    let _msg = req!(context.edit(&msg, text));
 }

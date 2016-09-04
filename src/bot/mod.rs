@@ -36,58 +36,42 @@ use discord::{
     Discord,
     Error as DiscordError,
     State,
+    voice,
 };
 use postgres::Connection as PgConnection;
 use self::event_counter::EventCounter;
 use self::plugins::*;
 use self::plugins::misc::Aesthetic;
-use self::plugins::music::MusicState;
-use std::sync::mpsc;
+use self::plugins::music::{MusicPlaying, MusicState};
+use std::sync::mpsc::{self, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 use ::prelude::*;
 
-pub struct Bot<'a> {
-    pub admin: Admin,
+pub struct Bot {
     connection: Arc<Mutex<DiscordConnection>>,
-    pub conversation: Conversation,
     db: Arc<Mutex<PgConnection>>,
     discord: Arc<Mutex<Discord>>,
     pub event_counter: Arc<Mutex<EventCounter>>,
-    pub meta: Meta<'a>,
-    pub misc: Misc<'a>,
-    pub music: Music,
-    pub pic: Pic,
-    pub random: Random,
-    pub stats: Stats,
+    music_state: Arc<Mutex<MusicState>>,
     pub state: Arc<Mutex<State>>,
-    pub tags: Tags,
-    pub tv: Tv,
     pub uptime: Arc<Mutex<Uptime>>,
 }
 
-impl<'a> Bot<'a> {
-    pub fn new<'b>(discord: Discord,
-                   conn: DiscordConnection,
-                   db: PgConnection,
-                   state: State)
-                   -> Bot<'b> {
+impl Bot {
+    pub fn new(discord: Discord,
+               conn: DiscordConnection,
+               db: PgConnection,
+               state: State)
+               -> Bot {
         Bot {
-            admin: Admin::new(),
             connection: Arc::new(Mutex::new(conn)),
-            conversation: Conversation::new(),
             db: Arc::new(Mutex::new(db)),
             discord: Arc::new(Mutex::new(discord)),
             event_counter: Arc::new(Mutex::new(EventCounter::new())),
-            meta: Meta::new(),
-            misc: Misc::new(),
-            music: Music::new(),
-            pic: Pic::new(),
-            random: Random::new(),
-            stats: Stats::new(),
+            music_state: Arc::new(Mutex::new(MusicState::default())),
             state: Arc::new(Mutex::new(state)),
-            tags: Tags::new(),
-            tv: Tv::new(),
             uptime: Arc::new(Mutex::new(Uptime {
                 boot: UTC::now(),
                 connection: UTC::now(),
@@ -109,14 +93,14 @@ impl<'a> Bot<'a> {
         //
         // The problem it creates is that all of the queued music is lost;
         // perhaps this is something to fix in the future.
-        let music_state: Arc<Mutex<MusicState>>;
-        music_state = Arc::new(Mutex::new(MusicState::new()));
         //let conn = self.connection.clone();
         //let state_copy = music_state.clone();
 
-        let (tx, _rx) = mpsc::channel();
+        let (tx, rx) = mpsc::channel();
+        let discord_copy = self.discord.clone();
+        let state_copy = self.music_state.clone();
+        let conn = self.connection.clone();
 
-        /*
         thread::spawn(move || {
             loop {
                 debug!("[music-check] Iterating");
@@ -174,7 +158,7 @@ impl<'a> Bot<'a> {
                         };
 
                         {
-                            let conn = conn.lock().unwrap();
+                            let mut conn = conn.lock().unwrap();
                             {
                                 let voice = conn.voice(Some(server_id));
                                 voice.play(stream);
@@ -206,7 +190,7 @@ impl<'a> Bot<'a> {
                             started_at: now,
                         }));
 
-                        let discord = self.discord.lock().unwrap();
+                        let discord = discord_copy.lock().unwrap();
                         let _ = discord.send_message(&requested_in,
                                                      &text,
                                                      "",
@@ -228,11 +212,9 @@ impl<'a> Bot<'a> {
                 }
             }
         });
-        */
 
         info!("[base] Connected");
 
-        self.music.state = music_state.clone();
         {
             let mut uptime = self.uptime.lock().unwrap();
             uptime.connection = UTC::now();
@@ -379,59 +361,59 @@ impl<'a> Bot<'a> {
         debug!("[handle-message] Processing command '{}'", cmd);
 
         match cmd {
-            "8ball" => self.random.magic_eight_ball(context),
-            "aescaps" => self.misc.aesthetic(context, vec![
+            "8ball" => random::magic_eight_ball(context),
+            "aescaps" => misc::aesthetic(context, vec![
                 Aesthetic::Bold,
                 Aesthetic::Caps,
             ]),
-            "aestheticcaps" => self.misc.aesthetic(context, vec![
+            "aestheticcaps" => misc::aesthetic(context, vec![
                 Aesthetic::Bold,
                 Aesthetic::Caps,
             ]),
-            "aesthetic" => self.misc.aesthetic(context, vec![]),
-            "aes" => self.misc.aesthetic(context, vec![]),
-            "about" => self.meta.about(context),
-            "anime" => self.tv.anime(context),
-            "bigemoji" => self.meta.big_emoji(context),
-            "channelinfo" => self.meta.channel_info(context),
-            "choose" => self.random.choose(context),
-            "coinflip" => self.random.coinflip(context),
-            "define" => self.conversation.define(context),
-            "delete" => self.tags.delete(context),
-            "events" => self.meta.events(context, self.event_counter.clone()),
-            "hello" => self.misc.hello(context),
-            "help" => self.meta.help(context),
-            "info" => self.tags.info(context),
-            "invite" => self.meta.invite(context),
-            "join" => self.music.join(context),
-            "leave" => self.music.leave(context),
-            "list" => self.tags.list(context),
-            "mfw" => self.misc.mfw(context),
-            "ping" => self.meta.ping(context),
-            "pi" => self.misc.pi(context),
-            "play" => self.music.play(context),
-            "purge" => self.admin.purge(context),
-            "queue" => self.music.queue(context),
-            "rename" => self.tags.rename(context),
-            "roleinfo" => self.meta.role_info(context),
-            "roll" => self.random.roll(context),
-            "roulette" => self.random.roulette(context),
-            "say" => self.misc.say(context),
-            "search" => self.tags.search(context),
-            "serverinfo" => self.meta.server_info(context),
-            "setstatus" => self.meta.set_status(context),
-            "set" => self.tags.set(context),
-            "skip" => self.music.skip(context),
-            "stats" => self.stats.stats(context),
-            "status" => self.music.status(context),
-            "teams" => self.random.teams(context),
-            "uptime" => self.misc.uptime(context, self.uptime.clone()),
-            "userinfo" => self.meta.user_info(context),
-            "weather" => self.misc.weather(context),
+            "aesthetic" => misc::aesthetic(context, vec![]),
+            "aes" => misc::aesthetic(context, vec![]),
+            "about" => meta::about(context),
+            "anime" => tv::anime(context),
+            "bigemoji" => meta::big_emoji(context),
+            "channelinfo" => meta::channel_info(context),
+            "choose" => random::choose(context),
+            "coinflip" => random::coinflip(context),
+            "define" => conversation::define(context),
+            "delete" => tags::delete(context),
+            "events" => meta::events(context, self.event_counter.clone()),
+            "hello" => misc::hello(context),
+            "help" => meta::help(context),
+            "info" => tags::info(context),
+            "invite" => meta::invite(context),
+            "join" => music::join(context, self.music_state.clone()),
+            "leave" => music::leave(context, self.music_state.clone()),
+            "list" => tags::list(context),
+            "mfw" => misc::mfw(context),
+            "ping" => meta::ping(context),
+            "pi" => misc::pi(context),
+            "play" => music::play(context, self.music_state.clone()),
+            "purge" => admin::purge(context),
+            "queue" => music::queue(context, self.music_state.clone()),
+            "rename" => tags::rename(context),
+            "roleinfo" => meta::role_info(context),
+            "roll" => random::roll(context),
+            "roulette" => random::roulette(context),
+            "say" => misc::say(context),
+            "search" => tags::search(context),
+            "serverinfo" => meta::server_info(context),
+            "setstatus" => meta::set_status(context),
+            "set" => tags::set(context),
+            "skip" => music::skip(context, self.music_state.clone()),
+            "stats" => stats::stats(context),
+            "status" => music::status(context, self.music_state.clone()),
+            "teams" => random::teams(context),
+            "uptime" => misc::uptime(context, self.uptime.clone()),
+            "userinfo" => meta::user_info(context),
+            "weather" => misc::weather(context),
             "get" | _ => {
                 debug!("[handle-message] Invalid command");
 
-                self.tags.get(context);
+                tags::get(context);
             },
         }
     }
