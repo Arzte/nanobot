@@ -14,38 +14,9 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use discord::model::{CurrentUser, ReadyEvent, UserId};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use ::error::{Error, Result};
-
-pub fn make_fake_ready_event() -> ReadyEvent {
-    ReadyEvent {
-        version: 0,
-        user: CurrentUser {
-            id: UserId(0),
-            username: String::new(),
-            discriminator: 0,
-            avatar: None,
-            email: None,
-            verified: false,
-            bot: false,
-            mfa_enabled: false,
-        },
-        session_id: String::new(),
-        user_settings: None,
-        read_state: None,
-        private_channels: vec![],
-        presences: vec![],
-        relationships: vec![],
-        servers: vec![],
-        user_server_settings: None,
-        tutorial: None,
-        trace: vec![],
-        notes: None,
-        shard: None,
-    }
-}
 
 #[macro_escape]
 macro_rules! req {

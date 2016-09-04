@@ -15,18 +15,15 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 use chrono::NaiveDateTime;
-use diesel::prelude::*;
-use diesel;
-use discord::{ChannelRef, State};
+use discord::ChannelRef;
 use forecast_io::{self, Icon, Unit};
 use rand::{Rng, thread_rng};
 use std::ascii::AsciiExt;
+use std::sync::{Arc, Mutex};
 use std::{char, env, str};
 use ::bot::Uptime;
 use ::ext::google_maps;
-use ::models::*;
 use ::prelude::*;
-use ::schema::members::dsl::*;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Aesthetic {
@@ -240,17 +237,21 @@ impl<'a> Misc<'a> {
         let _msg = req!(context.say(text));
     }
 
-    pub fn uptime(&self, context: Context, uptime: &Uptime) {
-        let boot = &uptime.boot.to_rfc3339()[..19];
-        let connection = &uptime.boot.to_rfc3339()[..19];
-        let text = format!(r#"```xl
+    pub fn uptime(&self, context: Context, uptime: Arc<Mutex<Uptime>>) {
+        let text = {
+            let uptime = uptime.lock().unwrap();
+            let boot = &uptime.boot.to_rfc3339()[..19];
+            let connection = &uptime.boot.to_rfc3339()[..19];
+
+            format!(r#"```xl
             Booted: {} UTC
-Current Connection: {} UTC```"#, boot, connection);
+Current Connection: {} UTC```"#, boot, connection)
+        };
 
         let _msg = req!(context.say(text));
     }
 
-    pub fn weather(&self, context: Context, state: &State) {
+    pub fn weather(&self, context: Context) {
         let first_arg = context.arg(1);
 
         let save = if let Ok(arg) = first_arg.as_str() {
@@ -262,30 +263,41 @@ Current Connection: {} UTC```"#, boot, connection);
         let full_text = context.text(0);
 
         let location_name = if !first_arg.exists() {
-            let s = match state.find_channel(&context.message.channel_id) {
-                Some(ChannelRef::Public(server, _channel)) => server,
+            let state = context.state.lock().unwrap();
+            let server_id = match state.find_channel(&context.message.channel_id) {
+                Some(ChannelRef::Public(server, _channel)) => server.id,
                 _ => {
                     let _msg = req!(context.say("Could not find server"));
 
                     return;
                 },
             };
+            drop(state);
 
-            let member_ = members.filter(server_id.eq(s.id.0 as i64))
-                .filter(user_id.eq(context.message.author.id.0 as i64))
-                .first::<Member>(context.db);
+            let db = context.db.lock().unwrap();
+            let retrieval = db.query(
+                "select weather_location from members where
+                 server_id = $1 and user_id = $2",
+                &[&(server_id.0 as i64), &(context.message.author.id.0 as i64)]
+            );
 
-            match member_ {
-                Ok(member_) => match member_.weather_location {
-                    Some(location) => location,
-                    None => {
-                        let _msg = req!(context.say("
-You do not have a location saved on this server!"));
+            match retrieval {
+                Ok(ref rows) if !rows.is_empty() => {
+                    let member = rows.get(0);
 
-                        return;
-                    },
+                    match member.get(0) {
+                        Some(location) => {
+                            let location: String = location;
+                            location.clone()
+                        },
+                        None => {
+                            let _msg = req!(context.say("You do not have a location saved on this server!"));
+
+                            return;
+                        },
+                    }
                 },
-                Err(diesel::NotFound) => {
+                Ok(_rows) => {
                     let _msg = req!(context.say("Member data not found"));
 
                     return;
@@ -350,7 +362,7 @@ You do not have a location saved on this server!"));
         let forecast = match res {
             Ok(forecast) => forecast,
             Err(why) => {
-                warn!("[forecast] err getting forecast: {:?}", why);
+                warn!("[forecast] Err getting forecast: {:?}", why);
                 let _msg = req!(context.edit(&msg, "Could not retrieve the forecast"));
 
                 return;
@@ -395,7 +407,6 @@ You do not have a location saved on this server!"));
         };
         let temp = {
             if let Some(temp_c) = currently.temperature {
-                info!("c: {}", temp_c);
                 let temp_f = (((temp_c * 9f64) / 5f64) + 32f64) as i16;
 
                 format!("{}C ({}F)", temp_c as i16, temp_f)
@@ -404,8 +415,7 @@ You do not have a location saved on this server!"));
             }
         };
         let probability = currently.precip_probability
-            .map(|v| v as u8)
-            .unwrap_or(0u8);
+            .map_or(0u8, |v| v as u8);
 
         let text = format!(r#"{} **{}**
 :clock1: {}

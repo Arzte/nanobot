@@ -15,13 +15,9 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 use chrono::{NaiveDateTime, UTC};
-use diesel::prelude::*;
-use diesel;
 use discord::model::{ChannelId, permissions};
-use discord::{ChannelRef, State};
-use ::models::*;
+use discord::ChannelRef;
 use ::prelude::*;
-use ::schema::tags::dsl::*;
 
 pub struct Tags;
 
@@ -30,57 +26,102 @@ impl Tags {
         Tags
     }
 
-    pub fn delete(&self, context: Context, state: &State) {
+    pub fn delete(&self, context: Context) {
         let key_ = context.text(0);
-        let s = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+        let aid = context.message.author.id;
+        let cid = ChannelId(context.message.channel_id.0 as u64);
+
+        let state = context.state.lock().unwrap();
+        let (server_id, perms) = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => {
+                let id = server.id;
+                let perms = server.permissions_for(cid, aid)
+                    .contains(permissions::MANAGE_MESSAGES);
+
+                (id, perms)
+            },
             _ => {
                 let _msg = req!(context.say("Could not find server"));
                 return;
             },
         };
+        drop(state);
 
-        let tag: Tag = {
-            let filter = tags.filter(server_id.eq(s.id.0 as i64))
-                .filter(key.eq(key_))
-                .first(context.db);
+        let db: PgConn = context.db.lock().unwrap();
+
+        let (tag_id, owner_id) = {
+            let filter: PgRes = db.query(
+                "select id, owner_id from tags where server_id = $1 and key = $2",
+                &[&(server_id.0 as i64), &key_]
+            );
 
             match filter {
-                Ok(tag_) => tag_,
-                Err(_why) => {
+                Ok(ref rows) if !rows.is_empty() => {
+                    let tag = rows.get(0);
+                    let tag_id: i32 = tag.get(0);
+                    let owner_id: i64 = tag.get(1);
+
+                    (tag_id, owner_id)
+                },
+                Ok(_rows) => {
                     let _msg = req!(context.say("Tag not found"));
+
+                    return;
+                },
+                Err(why) => {
+                    warn!("[delete] Err getting '{}' for {}: {:?}",
+                          server_id,
+                          key_,
+                          why);
+
+                    let _msg = req!(context.say("Error finding tag"));
 
                     return;
                 },
             }
         };
 
-        let can_delete = if tag.owner_id == context.message.author.id.0 as i64 {
-            true
-        } else {
-            let aid = context.message.author.id;
-            let cid = ChannelId(context.message.channel_id.0 as u64);
-
-            s.permissions_for(cid, aid).contains(permissions::MANAGE_MESSAGES)
-        };
+        let can_delete = owner_id == context.message.author.id.0 as i64 || perms;
 
         if !can_delete {
+            drop(db);
+
             let _msg = req!(context.say("You do not have permission to delete this tag."));
 
             return;
         }
 
-        match diesel::delete(tags.filter(id.eq(tag.id))).execute(context.db) {
-            Ok(_rows_deleted) => {
+        let delete = db.execute("delete from tags where id = $1", &[&tag_id]);
+
+        drop(db);
+
+        match delete {
+            Ok(1) => {
                 let _msg = req!(context.say("Deleted tag"));
             },
-            Err(_why) => {
+            Ok(0) => {
+                let _msg = req!(context.say("No tag deleted"));
+            },
+            Ok(amount) => {
+                warn!("[delete] Multiple deleted for '{}' in {}: {}",
+                      server_id,
+                      key_,
+                      amount);
+
+                let _msg = req!(context.say("Multiple tags deleted somehow"));
+            },
+            Err(why) => {
+                warn!("[delete] Err deleting tag '{}' in {}: {:?}",
+                      server_id,
+                      key_,
+                      why);
+
                 let _msg = req!(context.say("Error deleting tag"));
             },
         }
     }
 
-    pub fn get(&self, context: Context, state: &State) {
+    pub fn get(&self, context: Context) {
         let arg = context.arg(0);
         let arg2 = context.arg(1);
         let mut name = None;
@@ -106,32 +147,51 @@ impl Tags {
             },
         };
 
-        let s = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+        let state = context.state.lock().unwrap();
+        let server_id = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
                 let _msg = req!(context.say("Could not find server"));
 
                 return;
             },
         };
+        drop(state);
 
-        let tag: Tag = {
-            let filter = tags.filter(server_id.eq(s.id.0 as i64))
-                .filter(key.eq(user_key))
-                .first(context.db);
+        let db: PgConn = context.db.lock().unwrap();
+
+        let (uses, value) = {
+            let filter: PgRes = db.query(
+                "select uses, value from tags where server_id = $1 and key = $2",
+                &[&(server_id.0 as i64), &user_key]
+            );
 
             match filter {
-                Ok(tag_) => tag_,
-                Err(_why) => {
+                Ok(ref rows) if rows.len() == 1 => {
+                    let tag = rows.get(0);
+                    let uses: i32 = tag.get(0);
+                    let value: String = tag.get(1);
+
+                    (uses, value)
+                },
+                Ok(_rows) => return,
+                Err(why) => {
+                    warn!("[get] Err getting '{}' on {}: {:?}",
+                          server_id,
+                          user_key,
+                          why);
+
                     return;
                 },
             }
         };
 
-        let update = diesel::update(tags.filter(server_id.eq(s.id.0 as i64))
-            .filter(key.eq(user_key)))
-            .set(uses.eq(tag.uses + 1))
-            .execute(context.db);
+        let update = db.execute(
+            "update tags set uses = $1 where server_id = $2 and key = $3",
+            &[&(uses + 1), &(server_id.0 as i64), &user_key]
+        );
+
+        drop(db);
 
         match update {
             Ok(_updated) => {},
@@ -140,38 +200,53 @@ impl Tags {
             },
         }
 
-        let _msg = req!(context.say(tag.value));
+        let _msg = req!(context.say(value));
     }
 
-    pub fn info(&self, context: Context, state: &State) {
+    pub fn info(&self, context: Context) {
         let key_ = context.text(0);
+
+        let state = context.state.lock().unwrap();
         let s = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+            Some(ChannelRef::Public(server, _channel)) => server.clone(),
             _ => {
                 let _msg = req!(context.say("Could not find server"));
                 return;
             },
         };
+        drop(state);
 
-        let tag: Tag = {
-            let filter = tags.filter(server_id.eq(s.id.0 as i64))
-                .filter(key.eq(key_))
-                .first(context.db);
+        let db: PgConn = context.db.lock().unwrap();
 
-            match filter {
-                Ok(tag_) => tag_,
-                Err(_why) => {
-                    let _msg = req!(context.say("Tag not found"));
+        let filter: PgRes = db.query(
+            "select created_at, key, owner_id, uses from tags where
+             server_id = $1 and key = $2",
+            &[&(s.id.0 as i64), &key_]
+        );
 
-                    return;
-                },
-            }
+        let tag = match filter {
+            Ok(ref rows) if !rows.is_empty() => rows.get(0),
+            Ok(_rows) => {
+                let _msg = req!(context.say("Tag not found"));
+
+                return;
+            },
+            Err(why) => {
+                warn!("[info] Err querying for '{}' in {}: {:?}",
+                        key_,
+                      s.id,
+                      why);
+
+                let _msg = req!(context.say("Error getting tag"));
+
+                return;
+            },
         };
 
         let mut owner = None;
 
         for member in &s.members {
-            if member.user.id.0 as i64 == tag.owner_id {
+            if member.user.id.0 as i64 == tag.get(2) {
                 owner = Some(member);
             }
         }
@@ -182,45 +257,47 @@ impl Tags {
             "N/A".to_owned()
         };
 
-        let timestamp = NaiveDateTime::from_timestamp(tag.created_at, 0)
+        let timestamp = NaiveDateTime::from_timestamp(tag.get(0), 0)
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
+
+        let key: String = tag.get(1);
+        let uses: i32 = tag.get(3);
 
         let info = format!(r#"```xl
        Key: {}
      Owner: {}
 Created at: {}
-      Uses: {}```"#, tag.key,
-         owner_info,
-         timestamp,
-         tag.uses);
+      Uses: {}```"#, key, owner_info, timestamp, uses);
 
         let _msg = req!(context.say(info));
     }
 
-    pub fn list(&self, context: Context, state: &State) {
-        let s = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+    pub fn list(&self, context: Context) {
+        let state = context.state.lock().unwrap();
+        let server_id = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
                 let _msg = req!(context.say("Could not find server"));
                 return;
             },
         };
+        drop(state);
 
-        let tag_list: Vec<Tag> = {
-            let filter = tags.filter(server_id.eq(s.id.0 as i64))
-                .load(context.db);
+        let db: PgConn = context.db.lock().unwrap();
 
-            match filter {
-                Ok(tag_list) => tag_list,
-                Err(why) => {
-                    warn!("[list] retrieving tag list: {:?}", why);
+        let filter = db.query("select key from tags where server_id = $1",
+                              &[&(server_id.0 as i64)]);
 
-                    let _msg = req!(context.say("Error generating list"));
+        let tag_list = match filter {
+            Ok(rows) => rows,
+            Err(why) => {
+                warn!("[list] retrieving tag list: {:?}", why);
 
-                    return;
-                },
-            }
+                let _msg = req!(context.say("Error generating list"));
+
+                return;
+            },
         };
 
         if tag_list.is_empty() {
@@ -229,9 +306,10 @@ Created at: {}
             return;
         }
 
-        let mut alphabetized: Vec<&str> = tag_list.iter()
-            .map(|tag| &tag.key[..])
+        let mut alphabetized: Vec<String> = tag_list.iter()
+            .map(|tag| tag.get(0))
             .collect();
+
         alphabetized.sort();
 
         let joiner: &str = ", ";
@@ -297,7 +375,7 @@ Created at: {}
         }
     }
 
-    pub fn rename(&self, context: Context, state: &State) {
+    pub fn rename(&self, context: Context) {
         let text = context.text(0);
         let pos = match text.find(" --> ") {
             Some(pos) => pos,
@@ -314,14 +392,16 @@ Created at: {}
             return;
         }
 
+        let state = context.state.lock().unwrap();
         let server = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+            Some(ChannelRef::Public(server, _channel)) => server.clone(),
             _ => {
                 let _msg = req!(context.say("Could not find server"));
 
                 return;
             },
         };
+        drop(state);
 
         let (key_old, key_new) = (&text[..pos], &text[pos + 5..]);
 
@@ -331,36 +411,53 @@ Created at: {}
             return;
         }
 
+        let db: PgConn = context.db.lock().unwrap();
+
         // Check that the tag currently exists
-        let tag_ = {
-            let res = tags.filter(server_id.eq(server.id.0 as i64))
-                .filter(key.eq(key_old))
-                .first::<Tag>(context.db);
+        let res: PgRes = db.query(
+            "select owner_id from tags where server_id = $1 and key = $2",
+            &[&(server.id.0 as i64), &key_old]
+        );
 
-            match res {
-                Ok(tag_) => tag_,
-                Err(_why) => {
-                    let _msg = req!(context.say("Tag does not exist"));
+        let tag_ = match res {
+            Ok(ref rows) if rows.len() == 1 => rows.get(0),
+            Ok(ref rows) if rows.is_empty() => {
+                let _msg = req!(context.say("Tag not found"));
 
-                    return;
-                },
-            }
+                return;
+            },
+            Ok(ref rows) => {
+                warn!("[rename] Multiple tags for '{}' found in {}: {}'",
+                      key_old,
+                      server.id,
+                      rows.len());
+
+                let _msg = req!(context.say("Error retrieving tag"));
+
+                return;
+            },
+            Err(_why) => {
+                let _msg = req!(context.say("Tag does not exist"));
+
+                return;
+            },
         };
 
         // Check that a tag with the new name does not exist
-        let exists = tags.filter(server_id.eq(server.id.0 as i64))
-            .filter(key.eq(key_new))
-            .first::<Tag>(context.db);
+        let exists: PgRes = db.query(
+            "select id from tags where server_id = $1 and key = $2",
+            &[&(server.id.0 as i64), &key_new]
+        );
 
         match exists {
-            Err(diesel::NotFound) => {},
-            Ok(_exists) => {
+            Ok(ref rows) if rows.is_empty() => {},
+            Ok(_rows) => {
                 let _msg = req!(context.say("A tag exists with the new name"));
 
                 return;
             },
             Err(why) => {
-                warn!("[rename] retrieving old tag: {:?}", why);
+                warn!("[rename] Err retrieving old tag: {:?}", why);
 
                 let _msg = req!(context.say("Error retrieving old tag"));
 
@@ -373,7 +470,9 @@ Created at: {}
         //
         // - they are the owner of the tag;
         // - they have the "MANAGE_MESSAGES" permission.
-        let can_edit = if tag_.owner_id == context.message.author.id.0 as i64 {
+        let owner_id: i64 = tag_.get(0);
+
+        let can_edit = if owner_id == context.message.author.id.0 as i64 {
             true
         } else {
             let aid = context.message.author.id;
@@ -390,10 +489,10 @@ Created at: {}
         }
 
         // It's now safe to update the key
-        let update = diesel::update(tags.filter(server_id.eq(server.id.0 as i64))
-            .filter(key.eq(key_old)))
-            .set(key.eq(key_new))
-            .execute(context.db);
+        let update = db.execute(
+            "update tags set key = $1 where server_id = $2 and key = $3",
+            &[&key_new, &(server.id.0 as i64), &key_old]
+        );
 
         match update {
             Ok(1) => {
@@ -421,7 +520,7 @@ Created at: {}
         }
     }
 
-    pub fn search(&self, context: Context, state: &State) {
+    pub fn search(&self, context: Context) {
         let query = context.text(0);
 
         if query.is_empty() {
@@ -430,21 +529,22 @@ Created at: {}
             return;
         }
 
-        let s = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+        let state = context.state.lock().unwrap();
+        let server_id = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
                 let _msg = req!(context.say("Could not find server"));
 
                 return;
             },
         };
+        drop(state);
 
-        let search_res = tags.filter(server_id.eq(s.id.0 as i64))
-            .filter(key.like(format!("%{}%", query)))
-            .limit(15)
-            .load(context.db);
-
-        let tag_list: Vec<Tag> = match search_res {
+        let db: PgConn = context.db.lock().unwrap();
+        let search_res = db.query("select key from tags where server_id = $1 and
+                                   key like '%$2%' limit 15",
+                                  &[&(server_id.0 as i64), &query]);
+        let tag_list: Rows = match search_res {
             Ok(tag_list) => tag_list,
             Err(why) => {
                 warn!("[rename] retrieving tag list: {:?}", why);
@@ -463,15 +563,14 @@ Created at: {}
 
         let key_list: Vec<String> = tag_list
             .iter()
-            .map(|tag_| tag_.key.clone())
+            .map(|tag| tag.get(0))
             .collect();
         let listing = key_list.join(", ");
 
         let _msg = req!(context.say(listing));
     }
 
-    pub fn set(&self, context: Context, state: &State) {
-        use ::schema::tags;
+    pub fn set(&self, context: Context) {
         let text = context.text(0);
         let pos = match text.find(':') {
             Some(pos) => pos,
@@ -488,14 +587,16 @@ Created at: {}
             return;
         }
 
-        let s = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+        let state = context.state.lock().unwrap();
+        let server_id = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
                 let _msg = req!(context.say("Could not find server"));
 
                 return;
             },
         };
+        drop(state);
 
         let (key_, value_) = (&text[..pos], &text[pos + 2..]);
 
@@ -505,30 +606,32 @@ Created at: {}
             return;
         }
 
+        let db: PgConn = context.db.lock().unwrap();
+
         // Check if the tag exists already; we don't want to override it
         {
-            let creation = tags.filter(server_id.eq(s.id.0 as i64))
-                .filter(key.eq(key_))
-                .first::<Tag>(context.db);
+            let exists: PgRes = db.query(
+                "select id from tags where server_id = $1 and key = $2",
+                &[&(server_id.0 as i64), &key_]);
 
-            if let Ok(_tag) = creation {
+            if let Ok(_tag) = exists {
                 let _msg = req!(context.say("Tag already exists"));
 
                 return;
             }
         }
 
-        let new = NewTag {
-            created_at: UTC::now().timestamp(),
-            key: key_,
-            owner_id: context.message.author.id.0 as i64,
-            server_id: s.id.0 as i64,
-            value: value_,
-        };
-
-        let creation = diesel::insert(&new)
-            .into(tags::table)
-            .get_result::<Tag>(context.db);
+        let creation = db.execute(
+            "insert into tags (created_at, key, owner_id, server_id, value)
+             values ($1, $2, $3, $4, $5)",
+            &[
+                &(UTC::now().timestamp()),
+                &key_,
+                &(context.message.author.id.0 as i64),
+                &(server_id.0 as i64),
+                &value_
+            ]);
+        drop(db);
 
         match creation {
             Ok(_tag) => {

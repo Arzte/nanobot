@@ -19,9 +19,6 @@ pub mod plugins;
 mod event_counter;
 
 use chrono::{DateTime, UTC};
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
-use diesel;
 use discord::model::{
     Event,
     LiveServer,
@@ -30,14 +27,22 @@ use discord::model::{
     Server,
     User as DiscordUser
 };
-use discord::{ChannelRef, Connection as DiscordConnection, Discord, State};
+use discord::{
+    ChannelRef,
+    Connection as DiscordConnection,
+    Discord,
+    Error as DiscordError,
+    State,
+};
+use postgres::Connection as PgConnection;
 use self::event_counter::EventCounter;
 use self::plugins::*;
 use self::plugins::misc::Aesthetic;
+use self::plugins::music::MusicState;
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use ::models::{NewGuild, NewMember, NewUser};
+use std::thread;
 use ::prelude::*;
-use ::utils;
 
 pub struct Uptime {
     /// Unix timestamp of when the program itself started
@@ -50,64 +55,262 @@ pub struct Uptime {
 
 pub struct Bot<'a> {
     pub admin: Admin,
+    connection: Arc<Mutex<DiscordConnection>>,
     pub conversation: Conversation,
-    pub event_counter: EventCounter,
+    db: Arc<Mutex<PgConnection>>,
+    discord: Arc<Mutex<Discord>>,
+    pub event_counter: Arc<Mutex<EventCounter>>,
     pub meta: Meta<'a>,
     pub misc: Misc<'a>,
     pub music: Music,
     pub pic: Pic,
     pub random: Random,
     pub stats: Stats,
-    pub state: State,
+    pub state: Arc<Mutex<State>>,
     pub tags: Tags,
     pub tv: Tv,
-    pub uptime: Uptime,
+    pub uptime: Arc<Mutex<Uptime>>,
 }
 
 impl<'a> Bot<'a> {
-    pub fn new<'b>() -> Bot<'b> {
+    pub fn new<'b>(discord: Discord,
+                   conn: DiscordConnection,
+                   db: PgConnection,
+                   state: State)
+                   -> Bot<'b> {
         Bot {
             admin: Admin::new(),
+            connection: Arc::new(Mutex::new(conn)),
             conversation: Conversation::new(),
-            event_counter: EventCounter::new(),
+            db: Arc::new(Mutex::new(db)),
+            discord: Arc::new(Mutex::new(discord)),
+            event_counter: Arc::new(Mutex::new(EventCounter::new())),
             meta: Meta::new(),
             misc: Misc::new(),
             music: Music::new(),
             pic: Pic::new(),
             random: Random::new(),
             stats: Stats::new(),
-            state: State::new(utils::make_fake_ready_event()),
+            state: Arc::new(Mutex::new(state)),
             tags: Tags::new(),
             tv: Tv::new(),
-            uptime: Uptime {
+            uptime: Arc::new(Mutex::new(Uptime {
                 boot: UTC::now(),
                 connection: UTC::now(),
-            },
+            })),
         }
     }
 
-    pub fn handle_event(&mut self,
-                        event: Event,
-                        conn: Arc<Mutex<DiscordConnection>>,
-                        db: &PgConnection,
-                        discord: &Arc<Mutex<Discord>>) {
+    #[allow(or_fun_call)]
+    pub fn start(&mut self) {
+        // So storing the music queue here both creates a problem and solves a
+        // problem.
+        //
+        // The problem it solves, is the timer check on audio. If we lose
+        // connection to Discord, it'd not be that ergonomic to bump up the
+        // ending times of the playing songs appropriately (as audio will have
+        // attempted to continue playing). This also is problematic as I don't
+        // have complete control over the audio right now.
+        // This is also mostly out of laziness.
+        //
+        // The problem it creates is that all of the queued music is lost;
+        // perhaps this is something to fix in the future.
+        let music_state: Arc<Mutex<MusicState>>;
+        music_state = Arc::new(Mutex::new(MusicState::new()));
+        //let conn = self.connection.clone();
+        //let state_copy = music_state.clone();
+
+        let (tx, _rx) = mpsc::channel();
+
+        /*
+        thread::spawn(move || {
+            loop {
+                debug!("[music-check] Iterating");
+
+                {
+                    let now = UTC::now().timestamp() as u64;
+                    let mut state = state_copy.lock().unwrap();
+
+                    let mut remove = vec![];
+                    let mut next = vec![];
+
+                    // iter is auto-sorted by key
+                    for (k, v) in &state.song_completion {
+                        if now < *k {
+                            break;
+                        }
+
+                        next.extend_from_slice(v);
+                        remove.push(*k);
+                    }
+
+                    for item in remove {
+                        state.song_completion.remove(&item);
+                    }
+
+                    for server_id in next {
+                        if !state.queue.contains_key(&server_id) {
+                            continue;
+                        }
+
+                        // safe to unwrap since we already checked
+                        let empty = state.queue.get(&server_id)
+                            .unwrap()
+                            .is_empty();
+
+                        if empty {
+                            state.status.insert(server_id, None);
+
+                            continue;
+                        }
+
+                        // again: safe because we already checked
+                        let request = state.queue.get_mut(&server_id)
+                            .unwrap()
+                            .remove(0);
+
+                        let stream = match voice::open_ffmpeg_stream(&request.response.filepath) {
+                            Ok(stream) => stream,
+                            Err(why) => {
+                                warn!("[music-check] Err streaming {}: {:?}",
+                                      request.response.filepath, why);
+
+                                continue;
+                            },
+                        };
+
+                        {
+                            let conn = conn.lock().unwrap();
+                            {
+                                let voice = conn.voice(Some(server_id));
+                                voice.play(stream);
+                            }
+                        }
+
+                        let requested_in = request.requested_in;
+
+                        let text = format!("Playing song **{}** requested by _{}_ [duration: {}]",
+                                           request.response.data.title,
+                                           request.requester_name,
+                                           request.format_duration());
+
+                        // Now update the song completion to re-check
+                        // specifically once this song is over.
+                        let check_at = now + request.response.data.duration;
+
+                        {
+                            let entry = state.song_completion
+                                .entry(check_at)
+                                .or_insert(vec![]);
+                            entry.push(server_id);
+                        }
+
+                        state.status.insert(server_id, Some(MusicPlaying {
+                            req: request,
+                            skip_votes_required: 2,
+                            skip_votes: vec![],
+                            started_at: now,
+                        }));
+
+                        let discord = self.discord.lock().unwrap();
+                        let _ = discord.send_message(&requested_in,
+                                                     &text,
+                                                     "",
+                                                     false);
+                    }
+
+                    drop(state);
+                }
+
+                thread::sleep(Duration::from_secs(1));
+
+                match rx.try_recv() {
+                    Ok(_) | Err(TryRecvError::Disconnected) => {
+                        info!("[music-check] Killing music check");
+
+                        break;
+                    },
+                    Err(TryRecvError::Empty) => {},
+                }
+            }
+        });
+        */
+
+        info!("[base] Connected");
+
+        self.music.state = music_state.clone();
+        {
+            let mut uptime = self.uptime.lock().unwrap();
+            uptime.connection = UTC::now();
+        }
+
+        self.handle_connection();
+
+        // Stop the music queue check
+        let _ = tx.send(());
+    }
+
+    fn handle_connection(&mut self) {
+        let conn = self.connection.clone();
+
+        loop {
+            let event = {
+                let mut conn = conn.lock().unwrap();
+                match conn.recv_event() {
+                    Ok(event) => event,
+                    Err(DiscordError::Closed(code, body)) => {
+                        error!("[connection] Connection closed status {:?}: {}",
+                               code,
+                               body);
+
+                        break;
+                    },
+                    Err(why) => {
+                        error!("[connection] Receive error: {:?}", why);
+
+                        continue;
+                    },
+                }
+            };
+
+            debug!("[connection] Received event: {:?}", event);
+
+            {
+                let mut state = self.state.lock().unwrap();
+                state.update(&event);
+            }
+
+            {
+                let mut event_counter = self.event_counter.lock().unwrap();
+                event_counter.increment(&event);
+            }
+
+            self.handle_event(event);
+        }
+    }
+
+    pub fn handle_event(&mut self, event: Event) {
         debug!("[event] Handling event");
 
         match event {
             Event::MessageCreate(message) => {
                 debug!("[event] Handling MessageCreate");
 
-                let context = Context::new(conn, db, discord, message);
+                let context = Context::new(self.connection.clone(),
+                                           self.db.clone(),
+                                           self.discord.clone(),
+                                           message,
+                                           self.state.clone());
                 self.increment_member_messages(&context);
 
-                self.handle_message(context)
+                self.handle_message(context);
             },
             Event::ServerCreate(possible_server) => {
                 debug!("[event] Handling ServerCreate");
 
                 match possible_server {
                     PossibleServer::Online(server) => {
-                        self.handle_server_create(db, server);
+                        self.handle_server_create(server);
                     },
                     PossibleServer::Offline(_server_id) => {},
                 }
@@ -120,17 +323,17 @@ impl<'a> Bot<'a> {
                     PossibleServer::Offline(server_id) => server_id,
                 };
 
-                self.handle_server_delete(db, server_id);
+                self.handle_server_delete(server_id);
             },
             Event::ServerUpdate(server) => {
                 debug!("[event] Handling ServerUpdate");
 
-                self.handle_server_update(db, server);
+                self.handle_server_update(server);
             },
             Event::ServerMemberUpdate { server_id, user, nick, .. } => {
                 debug!("[event] ServerMemberUpdate");
 
-                self.handle_server_member_update(db, server_id, user, nick);
+                self.handle_server_member_update(server_id, user, nick);
             },
             _ => {},
         };
@@ -144,15 +347,20 @@ impl<'a> Bot<'a> {
         }
 
         // Ignore ourself
-        if context.message.author.id == self.state.user().id {
-            debug!("[handle-message] Ignoring ourself");
+        {
+            let state = self.state.lock().unwrap();
 
-            return;
+            if context.message.author.id == state.user().id {
+                debug!("[handle-message] Ignoring ourself");
+
+                return;
+            }
         }
 
         // Ignore other bots
         {
-            let s = self.state.find_channel(&context.message.channel_id);
+            let state = self.state.lock().unwrap();
+            let s = state.find_channel(&context.message.channel_id);
 
             if let Some(ChannelRef::Public(server, _channel)) = s {
                 let finding = server.members
@@ -191,84 +399,71 @@ impl<'a> Bot<'a> {
             "about" => self.meta.about(context),
             "anime" => self.tv.anime(context),
             "bigemoji" => self.meta.big_emoji(context),
-            "channelinfo" => self.meta.channel_info(context, &self.state),
+            "channelinfo" => self.meta.channel_info(context),
             "choose" => self.random.choose(context),
             "coinflip" => self.random.coinflip(context),
             "define" => self.conversation.define(context),
-            "delete" => self.tags.delete(context, &self.state),
-            "events" => self.meta.events(context, &self.event_counter),
+            "delete" => self.tags.delete(context),
+            "events" => self.meta.events(context, self.event_counter.clone()),
             "hello" => self.misc.hello(context),
             "help" => self.meta.help(context),
-            "info" => self.tags.info(context, &self.state),
+            "info" => self.tags.info(context),
             "invite" => self.meta.invite(context),
-            "join" => self.music.join(context, &self.state),
-            "leave" => self.music.leave(context, &self.state),
-            "list" => self.tags.list(context, &self.state),
+            "join" => self.music.join(context),
+            "leave" => self.music.leave(context),
+            "list" => self.tags.list(context),
             "mfw" => self.misc.mfw(context),
             "ping" => self.meta.ping(context),
             "pi" => self.misc.pi(context),
-            "play" => self.music.play(context, &self.state),
-            "purge" => self.admin.purge(context, &self.state),
-            "queue" => self.music.queue(context, &self.state),
-            "rename" => self.tags.rename(context, &self.state),
-            "roleinfo" => self.meta.role_info(context, &self.state),
+            "play" => self.music.play(context),
+            "purge" => self.admin.purge(context),
+            "queue" => self.music.queue(context),
+            "rename" => self.tags.rename(context),
+            "roleinfo" => self.meta.role_info(context),
             "roll" => self.random.roll(context),
             "roulette" => self.random.roulette(context),
             "say" => self.misc.say(context),
-            "search" => self.tags.search(context, &self.state),
-            "serverinfo" => self.meta.server_info(context, &self.state),
+            "search" => self.tags.search(context),
+            "serverinfo" => self.meta.server_info(context),
             "setstatus" => self.meta.set_status(context),
-            "set" => self.tags.set(context, &self.state),
-            "skip" => self.music.skip(context, &self.state),
-            "stats" => self.stats.stats(context, &self.state),
-            "status" => self.music.status(context, &self.state),
+            "set" => self.tags.set(context),
+            "skip" => self.music.skip(context),
+            "stats" => self.stats.stats(context),
+            "status" => self.music.status(context),
             "teams" => self.random.teams(context),
-            "uptime" => self.misc.uptime(context, &self.uptime),
-            "userinfo" => self.meta.user_info(context, &self.state),
-            "weather" => self.misc.weather(context, &self.state),
+            "uptime" => self.misc.uptime(context, self.uptime.clone()),
+            "userinfo" => self.meta.user_info(context),
+            "weather" => self.misc.weather(context),
             "get" | _ => {
                 debug!("[handle-message] Invalid command");
 
-                self.tags.get(context, &self.state);
+                self.tags.get(context);
             },
         }
     }
 
-    fn handle_server_create(&mut self,
-                            db: &PgConnection,
-                            server: LiveServer) {
-        use models::Guild;
-        use schema::guilds::dsl::*;
-        use schema::guilds::table as guilds_table;
-
-        let exists = {
-            guilds.filter(id.eq(server.id.0 as i64))
-                .first::<Guild>(db)
-        };
+    fn handle_server_create(&mut self, server: LiveServer) {
+        let db = self.db.lock().unwrap();
+        let exists: PgRes = db.query("select id from guilds where id = $1",
+                                     &[&(server.id.0 as i64)]);
 
         match exists {
-            Ok(_guild) => {
-                let _update = diesel::update(guilds_table
-                    .filter(id.eq(server.id.0 as i64)))
-                    .set((
-                        active.eq(true),
-                        name.eq(&server.name),
-                        owner_id.eq(server.owner_id.0 as i64)
-                    )).execute(db);
+            Ok(ref rows) if !rows.is_empty() => {
+                let _update = db.execute(
+                    "update guilds set active = $1, name = $2, owner_id = $3
+                     where id = $4",
+                    &[
+                        &true,
+                        &server.name,
+                        &(server.owner_id.0 as i64),
+                        &(server.id.0 as i64)]);
             },
-            Err(diesel::NotFound) => {
-                let new = NewGuild {
-                    active: true,
-                    id: server.id.0 as i64,
-                    name: &server.name,
-                    owner_id: server.owner_id.0 as i64,
-                };
-
-                let creation = {
-                    diesel::insert(&new)
-                        .into(guilds_table)
-                        .get_result::<Guild>(db)
-                };
+            Ok(_rows) => {
+                let creation = db.execute(
+                    "insert into guilds (active, id, name, owner_id) values
+                     ($1, $2, $3, $4)",
+                    &[&true, &(server.id.0 as i64), &server.name, &(server.owner_id.0 as i64)]
+                );
 
                 if let Err(why) = creation {
                     warn!("[event:servercreate] Err creating guild: {:?}", why);
@@ -280,21 +475,16 @@ impl<'a> Bot<'a> {
         }
     }
 
-    fn handle_server_delete(&mut self,
-                            db: &PgConnection,
-                            server_id: ServerId) {
-        use schema::guilds::dsl::*;
-
-        let update = {
-            diesel::update(guilds.filter(id.eq(server_id.0 as i64)))
-                .set(active.eq(false))
-                .execute(db)
-        };
+    fn handle_server_delete(&mut self, server_id: ServerId) {
+        let db = self.db.lock().unwrap();
+        let update = db.execute("update guilds set active = $1 where id = $2",
+                                &[&false, &(server_id.0 as i64)]);
+        drop(db);
 
         match update {
             Ok(1) | Ok(0) => {},
             Ok(amount) => {
-                warn!("[event:serverdelete] Multiple updated: {:?}", amount);
+                warn!("[event:serverdelete] Multiple deleted: {:?}", amount);
             },
             Err(why) => {
                 warn!("[event:serverdelete] Updating {} {:?}", server_id, why);
@@ -303,46 +493,39 @@ impl<'a> Bot<'a> {
     }
 
     fn handle_server_member_update(&mut self,
-                                   db: &PgConnection,
                                    server_id: ServerId,
                                    user: DiscordUser,
                                    nick: Option<String>) {
-        use models::Member;
-        use schema::members::dsl;
-        use schema::members::table as members_table;
+        let db = self.db.lock().unwrap();
 
-        let update = {
-            diesel::update(dsl::members
-                .filter(dsl::server_id.eq(server_id.0 as i64))
-                .filter(dsl::user_id.eq(user.id.0 as i64)))
-                .set(dsl::nickname.eq(nick))
-                .execute(db)
-        };
+        let update = db.execute(
+            "update members set nick = $1 where server_id = $2 and user_id = $3",
+            &[&nick, &(server_id.0 as i64), &(user.id.0 as i64)]
+        );
 
         match update {
             Ok(1) => {},
             // The member doesn't exist in the database; add it
             Ok(0) => {
-                let new = NewMember {
-                    message_count: 0,
-                    nickname: None,
-                    server_id: server_id.0 as i64,
-                    user_id: user.id.0 as i64,
-                    weather_location: None,
-                };
-
-                let creation = {
-                    diesel::insert(&new)
-                        .into(members_table)
-                        .get_result::<Member>(db)
-                };
+                let creation = db.execute(
+                    "insert into members
+                     (message_count, nickname, server_id, user_id, weather_location)
+                     values ($1, $2, $3, $4, $5)",
+                    &[
+                        &0i64,
+                        &None::<String>,
+                        &(server_id.0 as i64),
+                        &(user.id.0 as i64),
+                        &None::<String>,
+                    ]
+                );
 
                 if let Err(why) = creation {
                     warn!("[event:servermemberupdate] Err making member: {:?}",
                           why);
                 }
 
-                check_user(&user, db);
+                check_user(&user, &db);
             },
             Ok(amount) => {
                 warn!("[event:servermemberupdate] Many updated: {}", amount);
@@ -353,38 +536,23 @@ impl<'a> Bot<'a> {
         }
     }
 
-    fn handle_server_update(&mut self,
-                            db: &PgConnection,
-                            srv: Server) {
-        use models::Guild;
-        use schema::guilds::dsl::*;
-        use schema::guilds::table as guilds_table;
+    fn handle_server_update(&mut self, srv: Server) {
+        let db = self.db.lock().unwrap();
 
-        let update = {
-            diesel::update(guilds.filter(id.eq(srv.id.0 as i64)))
-                .set((
-                    active.eq(true),
-                    name.eq(&srv.name),
-                    owner_id.eq(srv.owner_id.0 as i64)))
-                .execute(db)
-        };
+        let update = db.execute(
+            "update guilds set active = $2, name = $3, owner_id = $4 where id = $1",
+            &[&(srv.id.0 as i64), &true, &srv.name, &(srv.owner_id.0 as i64)]
+        );
 
         match update {
             Ok(1) => {},
             // The server doesn't exist in the database, so add it
             Ok(0) => {
-                let new = NewGuild {
-                    active: true,
-                    id: srv.id.0 as i64,
-                    name: &srv.name[..],
-                    owner_id: srv.owner_id.0 as i64,
-                };
-
-                let creation = {
-                    diesel::insert(&new)
-                        .into(guilds_table)
-                        .get_result::<Guild>(db)
-                };
+                let creation = db.execute(
+                    "insert into guilds (active, id, name, owner_id) values
+                     ($1, $2, $3, $4)",
+                    &[&true, &(srv.id.0 as i64), &srv.name, &(srv.owner_id.0 as i64)]
+                );
 
                 if let Err(why) = creation {
                     warn!("[event:serverupdate] Err creating guild: {:?}", why);
@@ -402,62 +570,67 @@ impl<'a> Bot<'a> {
     }
 
     fn increment_member_messages(&self, context: &Context) {
-        use models::Member;
-        use schema::members::dsl::*;
-        use schema::members::table as members_table;
+        let state = self.state.lock().unwrap();
 
-        let server = match self.state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+        let server = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server.clone(),
             _ => return,
         };
+        drop(state);
 
-        let retrieval = {
-            members
-                .filter(server_id.eq(server.id.0 as i64))
-                .filter(user_id.eq(context.message.author.id.0 as i64))
-                .first::<Member>(context.db)
-        };
+        let db = self.db.lock().unwrap();
+
+        let retrieval: PgRes = db.query(
+            "select id, message_count from members where server_id = $1 and user_id = $2",
+            &[&(server.id.0 as i64), &(context.message.author.id.0 as i64)]
+        );
 
         match retrieval {
-            Ok(member_) => {
-                let update = {
-                    diesel::update(members.filter(id.eq(member_.id)))
-                        .set(message_count.eq(member_.message_count + 1))
-                        .execute(context.db)
-                };
+            Ok(ref rows) if !rows.is_empty() => {
+                let member = rows.get(0);
+
+                let id: i32 = member.get(0);
+                let mut message_count: i64 = member.get(1);
+                message_count += 1;
+                let update = db.execute(
+                    "update members set message_count = $1 where id = $2",
+                    &[&message_count, &id]
+                );
 
                 match update {
                     Ok(1) => {},
+                    Ok(0) => {
+                        warn!("[increment] Incremented none for {}", id);
+                    },
                     Ok(amount) => {
                         warn!("[increment] Incremented many: {}", amount);
                     },
                     Err(why) => {
-                        warn!("[increment] Err updating member {}: {:?}",
-                              member_.id,
-                              why);
+                        warn!("[increment] Err updating member {}: {:?}", id, why);
                     },
                 }
 
-                check_user(&context.message.author, context.db);
+                check_user(&context.message.author, &db);
             },
-            Err(diesel::NotFound) => {
-                let new = NewMember {
-                    message_count: 1,
-                    nickname: None,
-                    server_id: server.id.0 as i64,
-                    user_id: context.message.author.id.0 as i64,
-                    weather_location: None,
-                };
-
-                let insertion = diesel::insert(&new)
-                    .into(members_table)
-                    .get_result::<Member>(context.db);
+            Ok(_rows) => {
+                let insertion = db.execute(
+                    "insert into members
+                     (message_count, nickname, server_id, user_id, weather_location)
+                     values ($1, $2, $3, $4, $5)",
+                    &[
+                        &1i64,
+                        &None::<String>,
+                        &(server.id.0 as i64),
+                        &(context.message.author.id.0 as i64),
+                        &None::<String>,
+                    ]
+                );
 
                 if let Err(why) = insertion {
                     warn!("[increment] Err creating member: {:?}", why);
                 }
 
-                check_user(&context.message.author, context.db);
+                check_user(&context.message.author, &db);
             },
             Err(why) => {
                 warn!("[increment] Err finding user {} on server {}: {:?}",
@@ -471,28 +644,21 @@ impl<'a> Bot<'a> {
 
 /// Check that a user exists, and if not, make their record
 fn check_user(user: &DiscordUser, db: &PgConnection) {
-    use models::User;
-    use schema::users::dsl::*;
-    use schema::users::table as users_table;
-
-    let retrieval = users
-        .filter(id.eq(user.id.0 as i64))
-        .first::<User>(db);
+    let retrieval = db.query("select id from users where id = $1",
+                             &[&(user.id.0 as i64)]);
 
     match retrieval {
-        Ok(_user) => {},
-        Err(diesel::NotFound) => {
-            let new = NewUser {
-                id: user.id.0 as i64,
-                bot: user.bot,
-                discriminator: user.discriminator as i16,
-                username: &user.name,
-            };
-
-            let insertion = diesel::insert(&new)
-                .into(users_table)
-                .get_result::<User>(db);
-
+        Ok(ref rows) if !rows.is_empty() => {},
+        Ok(_rows) => {
+            let insertion = db.execute("insert into users
+                                        (id, bot, discriminator, username)
+                                        VALUES ($1, $2, $3, $4)",
+                                       &[
+                                           &(user.id.0 as i64),
+                                           &(user.bot),
+                                           &(user.discriminator as i16),
+                                           &(user.name)
+                                       ]);
             if let Err(why) = insertion {
                 warn!("[check-user] Err creating user {}: {:?}", user.id, why);
             }

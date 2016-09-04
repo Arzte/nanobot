@@ -15,7 +15,7 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 use discord::model::permissions;
-use discord::{ChannelRef, GetMessages, State};
+use discord::{ChannelRef, GetMessages};
 use ::prelude::*;
 
 pub struct Admin;
@@ -25,7 +25,7 @@ impl Admin {
         Admin
     }
 
-    pub fn purge(&self, context: Context, state: &State) {
+    pub fn purge(&self, context: Context) {
         if !context.arg(1).exists() {
             let _ = req!(context.say("Must provide message count to delete"));
 
@@ -33,17 +33,19 @@ impl Admin {
         }
 
         // Check that the person has the 'MANAGE_MESSAGES' permission
-        let server = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+        let state = context.state.lock().unwrap();
+        let member_perms = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => {
+                server.permissions_for(context.message.channel_id,
+                                       context.message.author.id)
+            },
             _ => {
                 let _msg = req!(context.say("Could not find server"));
 
                 return;
             },
         };
-
-        let member_perms = server.permissions_for(context.message.channel_id,
-                                                  context.message.author.id);
+        drop(state);
 
         if !member_perms.contains(permissions::MANAGE_MESSAGES) {
             let _msg = req!(context.say("You must be allowed to manage messages to be able to use this command"));

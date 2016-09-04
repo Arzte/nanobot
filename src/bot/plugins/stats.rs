@@ -14,7 +14,7 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use discord::{ChannelRef, State};
+use discord::ChannelRef;
 use ::prelude::*;
 
 pub struct Stats;
@@ -24,32 +24,31 @@ impl Stats {
         Stats
     }
 
-    pub fn stats(&self, context: Context, state: &State) {
-        use diesel::prelude::*;
-        use models::{Member, User};
-        use schema::members::dsl as members_dsl;
-        use schema::users::dsl as users_dsl;
-
-        let s = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+    pub fn stats(&self, context: Context) {
+        let state = context.state.lock().unwrap();
+        let server_id = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
                 let _msg = req!(context.say("Could not find server"));
 
                 return;
             },
         };
+        drop(state);
 
-        let search_res = members_dsl::members
-            .filter(members_dsl::server_id.eq(s.id.0 as i64))
-            .order(members_dsl::message_count.desc())
-            .limit(30)
-            .load(context.db);
+        let db: PgConn = context.db.lock().unwrap();
 
-        let member_list: Vec<Member> = match search_res {
-            Ok(member_list) => member_list,
+        let search_res: PgRes = db.query(
+            "select id, message_count, user_id where server_id = $1 limit 30
+             order by message_count desc",
+            &[&(server_id.0 as i64)]
+        );
+
+        let member_list = match search_res {
+            Ok(rows) => rows,
             Err(why) => {
                 warn!("[stats] Err getting members for guild {}: {:?}",
-                      s.id,
+                      server_id,
                       why);
 
                 let _msg = req!(context.say("Error generating list"));
@@ -67,24 +66,39 @@ impl Stats {
         let mut list = String::new();
         let mut rank = 1;
 
-        for member in member_list {
-            let user_res = users_dsl::users
-                .filter(users_dsl::id.eq(member.user_id))
-                .first::<User>(context.db);
+        for member in member_list.iter() {
+            let user_id: i64 = member.get(2);
+            let params: Params = vec![
+                &user_id,
+            ];
+            let user_res: PgRes = db.query("select username from users where
+                                            id = $1", &params);
 
             let user = match user_res {
-                Ok(user) => user,
+                Ok(ref rows) if !rows.is_empty() => rows.get(0),
+                Ok(_rows) => {
+                    let id: i32 = member.get(0);
+
+                    warn!("[stats] No user for member {}", id);
+
+                    continue;
+                },
                 Err(why) => {
-                    warn!("[stats] Err getting user {}: {:?}", member.id, why);
+                    let id: i32 = member.get(0);
+
+                    warn!("[stats] Err getting user {}: {:?}", id, why);
 
                     continue;
                 },
             };
 
+            let username: String = user.get(0);
+            let message_count: i64 = member.get(1);
+
             list.push_str(&format!("{}. {}: {}\n",
                                    rank,
-                                   user.username,
-                                   member.message_count));
+                                   username,
+                                   message_count));
 
             rank += 1;
         }

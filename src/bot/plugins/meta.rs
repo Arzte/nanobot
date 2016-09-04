@@ -18,10 +18,11 @@ use bot::event_counter::{EventCounter, EventType};
 use bot::event_counter;
 use chrono::{NaiveDateTime, UTC};
 use discord::model::{ChannelId, ChannelType, GameType, OnlineStatus};
-use discord::{ChannelRef, State};
+use discord::ChannelRef;
 use regex::Regex;
 use std::env;
 use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 use ::prelude::*;
 
 pub struct Meta<'a> {
@@ -404,8 +405,8 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
         let _msg = req!(context.say(text));
     }
 
-    pub fn channel_info(&self, context: Context, state: &State) {
-        let channel_mentions = context.channel_mentions(state);
+    pub fn channel_info(&self, context: Context) {
+        let channel_mentions = context.channel_mentions();
 
         let id = if let Some(channel) = channel_mentions.get(0) {
             channel.id
@@ -421,6 +422,7 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
             context.message.channel_id
         };
 
+        let state = context.state.lock().unwrap();
         let channel = if let Some(find) = state.find_channel(&id) {
             let mcid = context.message.channel_id;
             match find {
@@ -450,7 +452,7 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
                         return;
                     }
 
-                    channel
+                    channel.clone()
                 },
                 _ => {
                     let text = "Private Channels are not supported";
@@ -465,6 +467,7 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
 
             return;
         };
+        drop(state);
 
         let secs = channel.id.creation_date().sec;
         let created_at = NaiveDateTime::from_timestamp(secs, 0)
@@ -494,7 +497,7 @@ User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
         let _msg = req!(context.say(text));
     }
 
-    pub fn events(&self, context: Context, counter: &EventCounter) {
+    pub fn events(&self, context: Context, counter: Arc<Mutex<EventCounter>>) {
         let mut text = String::from("Events seen:\n");
 
         let arg_found = context.arg(1);
@@ -517,7 +520,10 @@ User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
             ]
         };
 
+
+        let counter = counter.lock().unwrap();
         let count_map = counter.map(event_types);
+        drop(counter);
 
         let mut total = 0;
 
@@ -600,40 +606,38 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=32225
         let _msg = req!(context.edit(&msg, format!("Ping! `[{}ms]`", diff)));
     }
 
-    pub fn role_info(&self, context: Context, state: &State) {
-        let server = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
-            _ => {
-                let _msg = req!(context.say("Server not found"));
-                return;
-            },
-        };
-
+    pub fn role_info(&self, context: Context) {
         let name = context.text(0);
 
-        let role_opt = if let Some(r) = context.message.mention_roles.first() {
-            server.roles
-                .iter()
-                .find(|role| role.id == *r)
-        } else {
-            if name.is_empty() {
-                let _msg = req!(context.say("A role name must be given"));
+        let role = {
+            let state = context.state.lock().unwrap();
+            let server = match state.find_channel(&context.message.channel_id) {
+                Some(ChannelRef::Public(server, _channel)) => server,
+                _ => {
+                    let _msg = req!(context.say("Server not found"));
+                    return;
+                },
+            };
 
-                return;
-            }
+            let opt = if let Some(r) = context.message.mention_roles.first() {
+                server.roles.iter().find(|role| role.id == *r)
+            } else {
+                if name.is_empty() {
+                    let _msg = req!(context.say("A role name must be given"));
 
-            server.roles
-                .iter()
-                .find(|role| role.name == name)
-        };
+                    return;
+                }
 
-        let role = match role_opt {
-            Some(role) => role,
-            None => {
+                server.roles.iter().find(|role| role.name == name)
+            };
+
+            if let Some(role) = opt {
+                role.clone()
+            } else {
                 let _msg = req!(context.say("Role not found"));
 
                 return;
-            },
+            }
         };
 
         let created_at = {
@@ -658,7 +662,8 @@ Mentionable: {}
         let _msg = req!(context.say(info));
     }
 
-    pub fn server_info(&self, context: Context, state: &State) {
+    pub fn server_info(&self, context: Context) {
+        let state = context.state.lock().unwrap();
         let server = match state.find_channel(&context.message.channel_id) {
             Some(ChannelRef::Public(server, _channel)) => server,
             _ => {
@@ -757,11 +762,11 @@ Icon: {}```"#, server.name,
         conn.set_game_name(new_status);
     }
 
-    pub fn user_info(&self, context: Context, state: &State) {
+    pub fn user_info(&self, context: Context) {
         let arg = context.arg(1);
 
         let user = if let Some(user) = context.message.mentions.get(0) {
-            &user
+            user.clone()
         } else if let Ok(info) = arg.as_str() {
             let (name, discriminator) = if let Some(pos) = info.find('#') {
                 let split = info.split_at(pos);
@@ -783,6 +788,7 @@ Icon: {}```"#, server.name,
                 (info, None)
             };
 
+            let state = context.state.lock().unwrap();
             let server = match state.find_channel(&context.message.channel_id) {
                 Some(ChannelRef::Public(server, _channel)) => server,
                 _ => {
@@ -801,21 +807,21 @@ Icon: {}```"#, server.name,
                 } else {
                     member.user.name == name
                 } {
-                    member_found = Some(member);
+                    member_found = Some(member.clone());
 
                     break;
                 }
             }
 
             if let Some(member) = member_found {
-                &member.user
+                member.user.clone()
             } else {
                 let _msg = req!(context.say("Error finding user"));
 
                 return;
             }
         } else {
-            &context.message.author
+            context.message.author.clone()
         };
 
         let mut text = format!(r#"```xl
@@ -827,6 +833,7 @@ Discriminator: {}
                      user.id,
                      user.avatar_url().unwrap_or("N/A".to_owned()));
 
+        let state = context.state.lock().unwrap();
         for server in state.servers() {
             let channel_found = server.channels.iter().any(|channel| {
                 channel.id == context.message.channel_id
@@ -917,6 +924,7 @@ Discriminator: {}
                         role_list)[..]);
             }
         }
+        drop(state);
 
         let _msg = req!(context.say(text));
     }

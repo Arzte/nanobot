@@ -14,34 +14,36 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use diesel::pg::PgConnection;
 use discord::model::{ChannelId, PublicChannel, Message};
 use discord::{ChannelRef, Connection as DiscordConnection, Discord, State};
+use postgres::Connection as PgConnection;
 use regex::Regex;
 use serde::ser::Serialize;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use ::prelude::*;
 
-pub struct Context<'a> {
+pub struct Context {
     pub conn: Arc<Mutex<DiscordConnection>>,
-    pub db: &'a PgConnection,
-    pub discord: &'a Arc<Mutex<Discord>>,
+    pub db: Arc<Mutex<PgConnection>>,
+    pub discord: Arc<Mutex<Discord>>,
     pub message: Message,
+    pub state: Arc<Mutex<State>>,
 }
 
-impl<'a> Context<'a> {
-    #[allow(needless_lifetimes)]
-    pub fn new<'b>(conn: Arc<Mutex<DiscordConnection>>,
-                   db_connection: &'b PgConnection,
-                   discord: &'b Arc<Mutex<Discord>>,
-                   message: Message)
-                   -> Context<'b> {
+impl Context {
+    pub fn new(conn: Arc<Mutex<DiscordConnection>>,
+               db_connection: Arc<Mutex<PgConnection>>,
+               discord: Arc<Mutex<Discord>>,
+               message: Message,
+               state: Arc<Mutex<State>>)
+               -> Context {
         Context {
             conn: conn,
             db: db_connection,
             discord: discord,
             message: message,
+            state: state,
         }
     }
 
@@ -70,9 +72,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn channel_mentions<'b>(&'b self,
-                                state: &'b State)
-                                -> Vec<&PublicChannel> {
+    pub fn channel_mentions(&self) -> Vec<PublicChannel> {
         let re = Regex::new(r"<#([0-9]+)>").unwrap();
 
         let mut channels = vec![];
@@ -87,9 +87,13 @@ impl<'a> Context<'a> {
                 Err(_why) => continue,
             };
 
+            let state = self.state.lock().unwrap();
+
             if let Some(ChannelRef::Public(_, ch)) = state.find_channel(&id) {
-                channels.push(ch);
+                channels.push(ch.clone());
             }
+
+            drop(state);
         }
 
         channels

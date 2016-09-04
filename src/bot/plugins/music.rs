@@ -16,7 +16,7 @@
 
 use chrono::UTC;
 use discord::model::{ChannelId, ServerId, UserId, permissions};
-use discord::{ChannelRef, State};
+use discord::ChannelRef;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use ::prelude::*;
@@ -99,11 +99,12 @@ impl Music {
     }
 
     #[allow(or_fun_call)]
-    pub fn join(&mut self, context: Context, state: &State) {
+    pub fn join(&mut self, context: Context) {
         let text = context.text(0);
 
+        let state = context.state.lock().unwrap();
         let (channel_id, server_id) = if !text.is_empty() {
-            let mentions = context.channel_mentions(state);
+            let mentions = context.channel_mentions();
 
             match mentions.get(0) {
                 Some(channel) => (channel.id, channel.server_id),
@@ -130,6 +131,7 @@ impl Music {
                 },
             }
         };
+        drop(state);
 
         let mut state = self.state.lock().unwrap();
 
@@ -160,7 +162,8 @@ impl Music {
         let _msg = req!(context.say("Ready to play audio"));
     }
 
-    pub fn leave(&mut self, context: Context, state: &State) {
+    pub fn leave(&mut self, context: Context) {
+        let state = context.state.lock().unwrap();
         let server_id = match state.find_channel(&context.message.channel_id) {
             Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
@@ -169,6 +172,7 @@ impl Music {
                 return;
             },
         };
+        drop(state);
 
         {
             let mut conn = context.conn.lock().unwrap();
@@ -188,8 +192,9 @@ impl Music {
     }
 
     #[allow(or_fun_call)]
-    pub fn play(&mut self, context: Context, data_state: &State) {
+    pub fn play(&mut self, context: Context) {
         let server_id = {
+            let data_state = context.state.lock().unwrap();
             match data_state.find_channel(&context.message.channel_id) {
                 Some(ChannelRef::Public(server, _channel)) => server.id,
                 _ => {
@@ -212,6 +217,8 @@ impl Music {
         // If they are not in one, then we can still try to queue their song. If
         // there is no song, then it will simply be time to exit.
         if !state.status.contains_key(&server_id) {
+            let data_state = context.state.lock().unwrap();
+
             match data_state.find_voice_user(context.message.author.id) {
                 Some((Some(_server_id), channel_id)) => {
                     let mut conn = context.conn.lock().unwrap();
@@ -232,6 +239,8 @@ impl Music {
                     // If no URL was provided, let them know we actually did
                     // nothing at all, and exit out.
                     if url.is_empty() {
+                        drop(data_state);
+
                         let _msg = req!(context.say("Nothing to queue"));
 
                         return;
@@ -325,7 +334,8 @@ impl Music {
         let _msg = req!(context.edit(&msg, text));
     }
 
-    pub fn queue(&self, context: Context, state: &State) {
+    pub fn queue(&self, context: Context) {
+        let state = context.state.lock().unwrap();
         let server_id = match state.find_channel(&context.message.channel_id) {
             Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
@@ -337,6 +347,7 @@ impl Music {
                 return;
             },
         };
+        drop(state);
 
         let text = {
             let mut temp = String::from("```xl");
@@ -379,9 +390,17 @@ impl Music {
         let _msg = req!(context.say(text));
     }
 
-    pub fn skip(&mut self, context: Context, state: &State) {
-        let server = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
+    pub fn skip(&mut self, context: Context) {
+        let state = context.state.lock().unwrap();
+        let (server_id, is_admin) = match state.find_channel(&context.message.channel_id) {
+            Some(ChannelRef::Public(server, _channel)) => {
+                let is_admin = server.permissions_for(
+                    context.message.channel_id,
+                    context.message.author.id
+                ).contains(permissions::ADMINISTRATOR);
+
+                (server.id, is_admin)
+            },
             _ => {
                 warn!("could not find server for channel {}",
                       context.message.channel_id);
@@ -391,6 +410,7 @@ impl Music {
                 return;
             },
         };
+        drop(state);
 
         let err_no = "No song is currently playing";
         let err_already = "You have already voted to skip this song";
@@ -398,7 +418,7 @@ impl Music {
         let vote = {
             let mut state = self.state.lock().unwrap();
 
-            match state.status.get_mut(&server.id) {
+            match state.status.get_mut(&server_id) {
                 Some(mut current_opt) => {
                     if let Some(mut current) = current_opt.as_mut() {
                         if current.req.requester == context.message.author.id {
@@ -436,12 +456,12 @@ impl Music {
             },
             SkipVote::Passed => {
                 let mut state = self.state.lock().unwrap();
-                state.status.insert(server.id, None);
+                state.status.insert(server_id, None);
                 drop(state);
 
                 let mut conn = context.conn.lock().unwrap();
                 {
-                    let mut voice = conn.voice(Some(server.id));
+                    let mut voice = conn.voice(Some(server_id));
                     voice.stop();
                 }
                 drop(conn);
@@ -453,7 +473,7 @@ impl Music {
             SkipVote::Voted => {
                 let state = self.state.lock().unwrap();
 
-                let current = match state.status.get(&server.id) {
+                let current = match state.status.get(&server_id) {
                     Some(current_opt) => {
                         if let Some(current) = current_opt.as_ref() {
                             (current.skip_votes.len(), current.skip_votes_required)
@@ -481,12 +501,12 @@ impl Music {
             },
             SkipVote::VoterSkipped => {
                 let mut state = self.state.lock().unwrap();
-                state.status.insert(server.id, None);
+                state.status.insert(server_id, None);
                 drop(state);
 
                 let mut conn = context.conn.lock().unwrap();
                 {
-                    let mut voice = conn.voice(Some(server.id));
+                    let mut voice = conn.voice(Some(server_id));
                     voice.stop();
                 }
                 drop(conn);
@@ -497,19 +517,12 @@ impl Music {
             },
         };
 
-        let is_admin = {
-            let perms = server.permissions_for(context.message.channel_id,
-                                               context.message.author.id);
-
-            perms.contains(permissions::ADMINISTRATOR)
-        };
-
         if remove_from_completion || is_admin {
             let mut state = self.state.lock().unwrap();
 
             for (_k, v) in &mut state.song_completion {
                 let removal_index = v.iter()
-                    .position(|sid| *sid == server.id);
+                    .position(|sid| *sid == server_id);
 
                 if let Some(removal_index) = removal_index {
                     v.remove(removal_index);
@@ -518,11 +531,12 @@ impl Music {
                 }
             }
 
-            state.song_completion.insert(0, vec![server.id]);
+            state.song_completion.insert(0, vec![server_id]);
         }
     }
 
-    pub fn status(&self, context: Context, state: &State) {
+    pub fn status(&self, context: Context) {
+        let state = context.state.lock().unwrap();
         let server_id = match state.find_channel(&context.message.channel_id) {
             Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {

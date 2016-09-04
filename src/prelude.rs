@@ -16,3 +16,13 @@
 
 pub use ::ext::commands::Context;
 pub use error::{Error, Result};
+pub use postgres::types::FromSql;
+pub use postgres::rows::Rows;
+
+use postgres::types::ToSql;
+use postgres::{Connection as PgConnection, Result as PgResult};
+use std::sync::MutexGuard;
+
+pub type Params<'a> = Vec<&'a ToSql>;
+pub type PgConn<'a> = MutexGuard<'a, PgConnection>;
+pub type PgRes<'a> = PgResult<Rows<'a>>;

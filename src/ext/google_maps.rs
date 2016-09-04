@@ -96,6 +96,7 @@ pub struct LocationData {
 }
 
 impl LocationData {
+    #[allow(or_fun_call)]
     fn decode(value: Value) -> Result<Self> {
         let mut map = try!(into_map(value));
 

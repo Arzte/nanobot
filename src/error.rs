@@ -14,7 +14,6 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use diesel::result::Error as DieselError;
 use discord::Error as DiscordError;
 use hyper::Error as HyperError;
 use serde_json::Error as JsonError;
@@ -26,17 +25,10 @@ pub type Result<T> = StdResult<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     Decode,
-    Diesel,
     Discord(DiscordError),
     Hyper(HyperError),
     Json(JsonError),
     YoutubeDL(String),
-}
-
-impl From<DieselError> for Error {
-    fn from(_e: DieselError) -> Error {
-        Error::Diesel
-    }
 }
 
 impl From<HyperError> for Error {
