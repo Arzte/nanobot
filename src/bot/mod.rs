@@ -68,7 +68,7 @@ impl Bot {
             connection: Arc::new(Mutex::new(conn)),
             db: Arc::new(Mutex::new(db)),
             discord: Arc::new(Mutex::new(discord)),
-            event_counter: Arc::new(Mutex::new(EventCounter::new())),
+            event_counter: Arc::new(Mutex::new(EventCounter::default())),
             music_state: Arc::new(Mutex::new(MusicState::default())),
             state: Arc::new(Mutex::new(state)),
             uptime: Arc::new(Mutex::new(Uptime {

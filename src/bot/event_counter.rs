@@ -16,6 +16,7 @@
 
 use discord::model::Event;
 use std::collections::{BTreeMap, HashMap};
+use std::default::Default;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum EventType {
@@ -120,12 +121,6 @@ pub fn event_types() -> [EventType; 44] {
 }
 
 impl EventCounter {
-    pub fn new() -> EventCounter {
-        EventCounter {
-            counter: HashMap::new(),
-        }
-    }
-
     fn increment_type(&mut self, event_type: EventType) {
         let entry = self.counter.entry(event_type).or_insert(0);
         *entry += 1;
@@ -199,5 +194,14 @@ impl EventCounter {
         }
 
         map
+    }
+}
+
+
+impl Default for EventCounter {
+    fn default() -> EventCounter {
+        EventCounter {
+            counter: HashMap::new(),
+        }
     }
 }
