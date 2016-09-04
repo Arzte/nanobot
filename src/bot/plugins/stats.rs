@@ -32,8 +32,8 @@ pub fn stats(context: Context) {
     let db: PgConn = context.db.lock().unwrap();
 
     let search_res: PgRes = db.query(
-        "select id, message_count, user_id where server_id = $1 limit 30
-         order by message_count desc",
+        "select id, message_count, user_id from members where server_id = $1
+         order by message_count desc limit 30",
         &[&(server_id.0 as i64)]
     );
 
