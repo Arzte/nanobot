@@ -78,7 +78,7 @@ impl Bot {
         }
     }
 
-    #[allow(or_fun_call)]
+    #[allow(map_entry, or_fun_call)]
     pub fn start(&mut self) {
         // So storing the music queue here both creates a problem and solves a
         // problem.
@@ -108,40 +108,49 @@ impl Bot {
                     let now = UTC::now().timestamp() as u64;
                     let mut state = state_copy.lock().unwrap();
 
-                    let mut remove = vec![];
+                    // A list of timestamps to remove from the `song_completion`
+                    // map.
+                    let mut timestamps_to_remove = vec![];
+
+                    // A list of ServerId's to attempt to play the next song in
+                    // the queue for.
                     let mut next = vec![];
 
                     // iter is auto-sorted by key
                     for (k, v) in &state.song_completion {
-                        if now < *k {
+                        if *k >= now {
                             break;
                         }
 
                         next.extend_from_slice(v);
-                        remove.push(*k);
+                        timestamps_to_remove.push(*k);
                     }
 
-                    for item in remove {
-                        state.song_completion.remove(&item);
+                    for timestamp in timestamps_to_remove {
+                        state.song_completion.remove(&timestamp);
                     }
 
                     for server_id in next {
+                        // If there is no queue for the server, remove the
+                        // server from having a status.
                         if !state.queue.contains_key(&server_id) {
-                            continue;
-                        }
-
-                        // safe to unwrap since we already checked
-                        let empty = state.queue.get(&server_id)
-                            .unwrap()
-                            .is_empty();
-
-                        if empty {
-                            state.status.insert(server_id, None);
+                            state.status.remove(&server_id);
 
                             continue;
                         }
 
-                        // again: safe because we already checked
+                        // If there is nothing in the queue, but it exists, then
+                        // remove the server from the queue and status.
+                        //
+                        // Safe to unwrap since we already checked.
+                        if state.queue.get(&server_id).unwrap().is_empty() {
+                            state.status.remove(&server_id);
+                            state.queue.remove(&server_id);
+
+                            continue;
+                        }
+
+                        // Again: safe because we already checked.
                         let request = state.queue.get_mut(&server_id)
                             .unwrap()
                             .remove(0);
@@ -158,14 +167,11 @@ impl Bot {
 
                         {
                             let mut conn = conn.lock().unwrap();
-                            {
-                                let voice = conn.voice(Some(server_id));
-                                voice.play(stream);
-                            }
+                            let voice = conn.voice(Some(server_id));
+                            voice.play(stream);
                         }
 
                         let requested_in = request.requested_in;
-
                         let text = format!("Playing song **{}** requested by _{}_ [duration: {}]",
                                            request.response.data.title,
                                            request.requester_name,
@@ -173,9 +179,9 @@ impl Bot {
 
                         // Now update the song completion to re-check
                         // specifically once this song is over.
-                        let check_at = now + request.response.data.duration;
-
                         {
+                            let check_at = now + request.response.data.duration;
+
                             let entry = state.song_completion
                                 .entry(check_at)
                                 .or_insert(vec![]);

@@ -280,17 +280,17 @@ pub fn play(context: Context) {
     // - there is not already a key for the server;
     // - we are in a voice channel in the server.
     let add_to_song_completion = {
-        let status = state.status.contains_key(&server_id);
+        let is_playing = state.status
+            .get(&server_id)
+            .map_or(false, |status| status.is_some());
 
-        let mut conn = context.conn.lock().unwrap();
         let in_voice = {
+            let mut conn = context.conn.lock().unwrap();
             let voice = conn.voice(Some(server_id));
             voice.current_channel().is_some()
         };
 
-        drop(conn);
-
-        !status && in_voice
+        !is_playing && in_voice
     };
 
     // Add the song to the server's queue, which we make if it doesn't

@@ -38,6 +38,7 @@ pub struct Context {
 }
 
 impl Context {
+    #[allow(too_many_arguments)]
     pub fn new(conn: Arc<Mutex<DiscordConnection>>,
                db_connection: Arc<Mutex<PgConnection>>,
                discord: Arc<Mutex<Discord>>,
