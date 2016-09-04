@@ -172,11 +172,8 @@ pub fn hello(context: Context) {
 }
 
 pub fn mfw(context: Context) {
-    use std::thread;
-    use std::time::Duration;
-    thread::sleep(Duration::from_secs(10));
     let _msg = match thread_rng().choose(&EMOJIS) {
-        Some(emoji) => req!(context.say(&emoji[..])),
+        Some(emoji) => req!(context.say(&format!(":{}:", emoji)[..])),
         None => req!(context.reply("No emoji found")),
     };
 }
