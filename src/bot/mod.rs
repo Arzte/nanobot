@@ -14,10 +14,9 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+pub mod event_counter;
 pub mod plugins;
-
-mod event_counter;
-mod uptime;
+pub mod uptime;
 
 pub use self::uptime::Uptime;
 
@@ -275,11 +274,16 @@ impl Bot {
                 let context = Context::new(self.connection.clone(),
                                            self.db.clone(),
                                            self.discord.clone(),
+                                           self.event_counter.clone(),
                                            message,
-                                           self.state.clone());
+                                           self.music_state.clone(),
+                                           self.state.clone(),
+                                           self.uptime.clone());
                 self.increment_member_messages(&context);
 
-                self.handle_message(context);
+                thread::spawn(move || {
+                    handle_message(context);
+                });
             },
             Event::ServerCreate(possible_server) => {
                 debug!("[event] Handling ServerCreate");
@@ -313,109 +317,6 @@ impl Bot {
             },
             _ => {},
         };
-    }
-
-    pub fn handle_message(&mut self, context: Context) {
-        if !context.message.content.starts_with(';') {
-            debug!("[handle-message] Not a command");
-
-            return;
-        }
-
-        // Ignore ourself
-        {
-            let state = self.state.lock().unwrap();
-
-            if context.message.author.id == state.user().id {
-                debug!("[handle-message] Ignoring ourself");
-
-                return;
-            }
-        }
-
-        // Ignore other bots
-        {
-            let state = self.state.lock().unwrap();
-            let s = state.find_channel(&context.message.channel_id);
-
-            if let Some(ChannelRef::Public(server, _channel)) = s {
-                let finding = server.members
-                    .iter()
-                    .find(|mem| mem.user.id == context.message.author.id);
-
-                if let Some(member) = finding {
-                    if member.user.bot {
-                        debug!("[handle-message] Ignoring a bot's message");
-
-                        return;
-                    }
-                }
-            }
-        }
-
-        // Retrieve the first command. If one doesn't exist, see if a tag exists
-        // for it by name.
-        let cmd_str = String::from(req!(context.arg(0).as_str()));
-        let cmd = &cmd_str[..];
-
-        debug!("[handle-message] Processing command '{}'", cmd);
-
-        match cmd {
-            "8ball" => random::magic_eight_ball(context),
-            "aescaps" => misc::aesthetic(context, vec![
-                Aesthetic::Bold,
-                Aesthetic::Caps,
-            ]),
-            "aestheticcaps" => misc::aesthetic(context, vec![
-                Aesthetic::Bold,
-                Aesthetic::Caps,
-            ]),
-            "aesthetic" => misc::aesthetic(context, vec![]),
-            "aes" => misc::aesthetic(context, vec![]),
-            "about" => meta::about(context),
-            "anime" => tv::anime(context),
-            "bigemoji" => meta::big_emoji(context),
-            "channelinfo" => meta::channel_info(context),
-            "choose" => random::choose(context),
-            "coinflip" => random::coinflip(context),
-            "define" => conversation::define(context),
-            "delete" => tags::delete(context),
-            "events" => meta::events(context, self.event_counter.clone()),
-            "hello" => misc::hello(context),
-            "help" => meta::help(context),
-            "info" => tags::info(context),
-            "invite" => meta::invite(context),
-            "join" => music::join(context, self.music_state.clone()),
-            "leave" => music::leave(context, self.music_state.clone()),
-            "list" => tags::list(context),
-            "mfw" => misc::mfw(context),
-            "ping" => meta::ping(context),
-            "pi" => misc::pi(context),
-            "play" => music::play(context, self.music_state.clone()),
-            "purge" => admin::purge(context),
-            "queue" => music::queue(context, self.music_state.clone()),
-            "rename" => tags::rename(context),
-            "roleinfo" => meta::role_info(context),
-            "roll" => random::roll(context),
-            "roulette" => random::roulette(context),
-            "say" => misc::say(context),
-            "search" => tags::search(context),
-            "serverinfo" => meta::server_info(context),
-            "setstatus" => meta::set_status(context),
-            "set" => tags::set(context),
-            "skip" => music::skip(context, self.music_state.clone()),
-            "stats" => stats::stats(context),
-            "status" => music::status(context, self.music_state.clone()),
-            "teams" => random::teams(context),
-            "uptime" => misc::uptime(context, self.uptime.clone()),
-            "userinfo" => meta::user_info(context),
-            "weather" => misc::weather(context),
-            "get" | _ => {
-                debug!("[handle-message] Invalid command");
-
-                tags::get(context);
-            },
-        }
     }
 
     fn handle_server_create(&mut self, server: LiveServer) {
@@ -641,6 +542,110 @@ fn check_user(user: &DiscordUser, db: &PgConnection) {
         },
         Err(why) => {
             warn!("[check-user] Err getting {}: {:?}", user.id, why);
+        },
+    }
+}
+
+
+fn handle_message(context: Context) {
+    if !context.message.content.starts_with(';') {
+        debug!("[handle-message] Not a command");
+
+        return;
+    }
+
+    // Ignore ourself
+    {
+        let state = context.state.lock().unwrap();
+
+        if context.message.author.id == state.user().id {
+            debug!("[handle-message] Ignoring ourself");
+
+            return;
+        }
+    }
+
+    // Ignore other bots
+    {
+        let state = context.state.lock().unwrap();
+        let s = state.find_channel(&context.message.channel_id);
+
+        if let Some(ChannelRef::Public(server, _channel)) = s {
+            let finding = server.members
+                .iter()
+                .find(|mem| mem.user.id == context.message.author.id);
+
+            if let Some(member) = finding {
+                if member.user.bot {
+                    debug!("[handle-message] Ignoring a bot's message");
+
+                    return;
+                }
+            }
+        }
+    }
+
+    // Retrieve the first command. If one doesn't exist, see if a tag exists
+    // for it by name.
+    let cmd_str = String::from(req!(context.arg(0).as_str()));
+    let cmd = &cmd_str[..];
+
+    debug!("[handle-message] Processing command '{}'", cmd);
+
+    match cmd {
+        "8ball" => random::magic_eight_ball(context),
+        "aescaps" => misc::aesthetic(context, vec![
+                                     Aesthetic::Bold,
+                                     Aesthetic::Caps,
+        ]),
+        "aestheticcaps" => misc::aesthetic(context, vec![
+                                           Aesthetic::Bold,
+                                           Aesthetic::Caps,
+        ]),
+        "aesthetic" => misc::aesthetic(context, vec![]),
+        "aes" => misc::aesthetic(context, vec![]),
+        "about" => meta::about(context),
+        "anime" => tv::anime(context),
+        "bigemoji" => meta::big_emoji(context),
+        "channelinfo" => meta::channel_info(context),
+        "choose" => random::choose(context),
+        "coinflip" => random::coinflip(context),
+        "define" => conversation::define(context),
+        "delete" => tags::delete(context),
+        "events" => meta::events(context),
+        "hello" => misc::hello(context),
+        "help" => meta::help(context),
+        "info" => tags::info(context),
+        "invite" => meta::invite(context),
+        "join" => music::join(context),
+        "leave" => music::leave(context),
+        "list" => tags::list(context),
+        "mfw" => misc::mfw(context),
+        "ping" => meta::ping(context),
+        "pi" => misc::pi(context),
+        "play" => music::play(context),
+        "purge" => admin::purge(context),
+        "queue" => music::queue(context),
+        "rename" => tags::rename(context),
+        "roleinfo" => meta::role_info(context),
+        "roll" => random::roll(context),
+        "roulette" => random::roulette(context),
+        "say" => misc::say(context),
+        "search" => tags::search(context),
+        "serverinfo" => meta::server_info(context),
+        "setstatus" => meta::set_status(context),
+        "set" => tags::set(context),
+        "skip" => music::skip(context),
+        "stats" => stats::stats(context),
+        "status" => music::status(context),
+        "teams" => random::teams(context),
+        "uptime" => misc::uptime(context),
+        "userinfo" => meta::user_info(context),
+        "weather" => misc::weather(context),
+        "get" | _ => {
+            debug!("[handle-message] Invalid command");
+
+            tags::get(context);
         },
     }
 }

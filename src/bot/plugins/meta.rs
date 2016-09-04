@@ -14,7 +14,7 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use bot::event_counter::{EventCounter, EventType};
+use bot::event_counter::EventType;
 use bot::event_counter;
 use chrono::{NaiveDateTime, UTC};
 use discord::model::{ChannelId, ChannelType, GameType, OnlineStatus};
@@ -22,7 +22,6 @@ use discord::ChannelRef;
 use regex::Regex;
 use std::env;
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
 use ::prelude::*;
 
 lazy_static! {
@@ -493,7 +492,7 @@ channel.user_limit.unwrap_or(0)));
     let _msg = req!(context.say(text));
 }
 
-pub fn events(context: Context, counter: Arc<Mutex<EventCounter>>) {
+pub fn events(context: Context) {
     let mut text = String::from("Events seen:\n");
 
     let arg_found = context.arg(1);
@@ -517,7 +516,7 @@ pub fn events(context: Context, counter: Arc<Mutex<EventCounter>>) {
     };
 
 
-    let counter = counter.lock().unwrap();
+    let counter = context.event_counter.lock().unwrap();
     let count_map = counter.map(event_types);
     drop(counter);
 

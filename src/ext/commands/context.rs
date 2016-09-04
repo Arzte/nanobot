@@ -21,29 +21,41 @@ use regex::Regex;
 use serde::ser::Serialize;
 use std::fmt;
 use std::sync::{Arc, Mutex};
+use ::bot::event_counter::EventCounter;
+use ::bot::plugins::music::MusicState;
+use ::bot::Uptime;
 use ::prelude::*;
 
 pub struct Context {
     pub conn: Arc<Mutex<DiscordConnection>>,
     pub db: Arc<Mutex<PgConnection>>,
     pub discord: Arc<Mutex<Discord>>,
+    pub event_counter: Arc<Mutex<EventCounter>>,
     pub message: Message,
+    pub music_state: Arc<Mutex<MusicState>>,
     pub state: Arc<Mutex<State>>,
+    pub uptime: Arc<Mutex<Uptime>>,
 }
 
 impl Context {
     pub fn new(conn: Arc<Mutex<DiscordConnection>>,
                db_connection: Arc<Mutex<PgConnection>>,
                discord: Arc<Mutex<Discord>>,
+               event_counter: Arc<Mutex<EventCounter>>,
                message: Message,
-               state: Arc<Mutex<State>>)
+               music_state: Arc<Mutex<MusicState>>,
+               state: Arc<Mutex<State>>,
+               uptime: Arc<Mutex<Uptime>>)
                -> Context {
         Context {
             conn: conn,
             db: db_connection,
             discord: discord,
+            event_counter: event_counter,
             message: message,
+            music_state: music_state,
             state: state,
+            uptime: uptime,
         }
     }
 

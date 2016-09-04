@@ -19,7 +19,6 @@ use discord::model::{ChannelId, ServerId, UserId, permissions};
 use discord::ChannelRef;
 use std::collections::{BTreeMap, HashMap};
 use std::default::Default;
-use std::sync::{Arc, Mutex};
 use ::prelude::*;
 use ::ext::youtube_dl::{self, Response as YoutubeDLResponse};
 
@@ -88,7 +87,7 @@ impl Default for MusicState {
 }
 
 #[allow(or_fun_call)]
-pub fn join(context: Context, music_state: Arc<Mutex<MusicState>>) {
+pub fn join(context: Context) {
     let text = context.text(0);
 
     let state = context.state.lock().unwrap();
@@ -122,7 +121,7 @@ pub fn join(context: Context, music_state: Arc<Mutex<MusicState>>) {
     };
     drop(state);
 
-    let mut state = music_state.lock().unwrap();
+    let mut state = context.music_state.lock().unwrap();
 
     // Check if we're already in a voice channel in the server
     if state.status.contains_key(&server_id) {
@@ -151,7 +150,7 @@ pub fn join(context: Context, music_state: Arc<Mutex<MusicState>>) {
     let _msg = req!(context.say("Ready to play audio"));
 }
 
-pub fn leave(context: Context, music_state: Arc<Mutex<MusicState>>) {
+pub fn leave(context: Context) {
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.id,
@@ -168,7 +167,7 @@ pub fn leave(context: Context, music_state: Arc<Mutex<MusicState>>) {
         conn.drop_voice(Some(server_id));
     }
 
-    let mut state = music_state.lock().unwrap();
+    let mut state = context.music_state.lock().unwrap();
 
     state.status.remove(&server_id);
     state.queue.remove(&server_id);
@@ -179,7 +178,7 @@ pub fn leave(context: Context, music_state: Arc<Mutex<MusicState>>) {
 }
 
 #[allow(or_fun_call)]
-pub fn play(context: Context, music_state: Arc<Mutex<MusicState>>) {
+pub fn play(context: Context) {
     let server_id = {
         let data_state = context.state.lock().unwrap();
         match data_state.find_channel(&context.message.channel_id) {
@@ -196,7 +195,7 @@ pub fn play(context: Context, music_state: Arc<Mutex<MusicState>>) {
     // channel they are in.
     let url = context.text(0);
 
-    let mut state = music_state.lock().unwrap();
+    let mut state = context.music_state.lock().unwrap();
 
     // Attempt to join the user's voice channel _if_ - and _only_ if - we
     // are not already in one.
@@ -273,7 +272,7 @@ pub fn play(context: Context, music_state: Arc<Mutex<MusicState>>) {
                        response.data.title,
                        get_duration(response.data.duration));
 
-    let mut state = music_state.lock().unwrap();
+    let mut state = context.music_state.lock().unwrap();
 
     // Add the song to the `song_completion` map, but _only_ if the two
     // requirements are met:
@@ -321,7 +320,7 @@ pub fn play(context: Context, music_state: Arc<Mutex<MusicState>>) {
     let _msg = req!(context.edit(&msg, text));
 }
 
-pub fn queue(context: Context, music_state: Arc<Mutex<MusicState>>) {
+pub fn queue(context: Context) {
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.id,
@@ -338,7 +337,7 @@ pub fn queue(context: Context, music_state: Arc<Mutex<MusicState>>) {
 
     let text = {
         let mut temp = String::from("```xl");
-        let state = music_state.lock().unwrap();
+        let state = context.music_state.lock().unwrap();
 
         {
             let requests = match state.queue.get(&server_id) {
@@ -377,7 +376,7 @@ request.format_duration()));
     let _msg = req!(context.say(text));
 }
 
-pub fn skip(context: Context, music_state: Arc<Mutex<MusicState>>) {
+pub fn skip(context: Context) {
     let state = context.state.lock().unwrap();
     let (server_id, is_admin) = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => {
@@ -403,7 +402,7 @@ pub fn skip(context: Context, music_state: Arc<Mutex<MusicState>>) {
     let err_already = "You have already voted to skip this song";
 
     let vote = {
-        let mut state = music_state.lock().unwrap();
+        let mut state = context.music_state.lock().unwrap();
 
         match state.status.get_mut(&server_id) {
             Some(mut current_opt) => {
@@ -442,7 +441,7 @@ pub fn skip(context: Context, music_state: Arc<Mutex<MusicState>>) {
             false
         },
         SkipVote::Passed => {
-            let mut state = music_state.lock().unwrap();
+            let mut state = context.music_state.lock().unwrap();
             state.status.insert(server_id, None);
             drop(state);
 
@@ -458,7 +457,7 @@ pub fn skip(context: Context, music_state: Arc<Mutex<MusicState>>) {
             true
         },
         SkipVote::Voted => {
-            let state = music_state.lock().unwrap();
+            let state = context.music_state.lock().unwrap();
 
             let current = match state.status.get(&server_id) {
                 Some(current_opt) => {
@@ -488,7 +487,7 @@ pub fn skip(context: Context, music_state: Arc<Mutex<MusicState>>) {
         },
         SkipVote::VoterSkipped => {
             {
-                let mut state = music_state.lock().unwrap();
+                let mut state = context.music_state.lock().unwrap();
                 state.status.insert(server_id, None);
             }
 
@@ -506,7 +505,7 @@ pub fn skip(context: Context, music_state: Arc<Mutex<MusicState>>) {
     };
 
     if remove_from_completion || is_admin {
-        let mut state = music_state.lock().unwrap();
+        let mut state = context.music_state.lock().unwrap();
 
         for (_k, v) in &mut state.song_completion {
             let removal_index = v.iter()
@@ -523,7 +522,7 @@ pub fn skip(context: Context, music_state: Arc<Mutex<MusicState>>) {
     }
 }
 
-pub fn status(context: Context, music_state: Arc<Mutex<MusicState>>) {
+pub fn status(context: Context) {
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.id,
@@ -538,7 +537,7 @@ pub fn status(context: Context, music_state: Arc<Mutex<MusicState>>) {
     };
 
     let text = {
-        let state = music_state.lock().unwrap();
+        let state = context.music_state.lock().unwrap();
         let current = match state.status.get(&server_id) {
             Some(&Some(ref current)) => current,
             _ => {

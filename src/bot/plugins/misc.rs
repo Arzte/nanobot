@@ -19,9 +19,7 @@ use discord::ChannelRef;
 use forecast_io::{self, Icon, Unit};
 use rand::{Rng, thread_rng};
 use std::ascii::AsciiExt;
-use std::sync::{Arc, Mutex};
 use std::{char, env, str};
-use ::bot::Uptime;
 use ::ext::google_maps;
 use ::prelude::*;
 
@@ -174,6 +172,9 @@ pub fn hello(context: Context) {
 }
 
 pub fn mfw(context: Context) {
+    use std::thread;
+    use std::time::Duration;
+    thread::sleep(Duration::from_secs(10));
     let _msg = match thread_rng().choose(&EMOJIS) {
         Some(emoji) => req!(context.say(&emoji[..])),
         None => req!(context.reply("No emoji found")),
@@ -228,9 +229,9 @@ pub fn say(context: Context) {
     let _msg = req!(context.say(text));
 }
 
-pub fn uptime(context: Context, uptime: Arc<Mutex<Uptime>>) {
+pub fn uptime(context: Context) {
     let text = {
-        let uptime = uptime.lock().unwrap();
+        let uptime = context.uptime.lock().unwrap();
         let boot = &uptime.boot.to_rfc3339()[..19];
         let connection = &uptime.boot.to_rfc3339()[..19];
 
