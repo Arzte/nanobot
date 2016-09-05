@@ -32,13 +32,11 @@ use discord::model::{
 use discord::{
     ChannelRef,
     Connection as DiscordConnection,
-    Discord,
     Error as DiscordError,
     State,
     voice,
 };
 use postgres::Connection as PgConnection;
-use self::event_counter::EventCounter;
 use self::plugins::*;
 use self::plugins::misc::Aesthetic;
 use self::plugins::music::{MusicPlaying, MusicState};
@@ -50,31 +48,16 @@ use ::prelude::*;
 
 pub struct Bot {
     connection: Arc<Mutex<DiscordConnection>>,
-    db: Arc<Mutex<PgConnection>>,
-    discord: Arc<Mutex<Discord>>,
-    pub event_counter: Arc<Mutex<EventCounter>>,
     music_state: Arc<Mutex<MusicState>>,
     pub state: Arc<Mutex<State>>,
-    pub uptime: Arc<Mutex<Uptime>>,
 }
 
 impl Bot {
-    pub fn new(discord: Discord,
-               conn: DiscordConnection,
-               db: PgConnection,
-               state: State)
-               -> Bot {
+    pub fn new(conn: DiscordConnection, state: State) -> Bot {
         Bot {
             connection: Arc::new(Mutex::new(conn)),
-            db: Arc::new(Mutex::new(db)),
-            discord: Arc::new(Mutex::new(discord)),
-            event_counter: Arc::new(Mutex::new(EventCounter::default())),
             music_state: Arc::new(Mutex::new(MusicState::default())),
             state: Arc::new(Mutex::new(state)),
-            uptime: Arc::new(Mutex::new(Uptime {
-                boot: UTC::now(),
-                connection: UTC::now(),
-            })),
         }
     }
 
@@ -96,7 +79,6 @@ impl Bot {
         //let state_copy = music_state.clone();
 
         let (tx, rx) = mpsc::channel();
-        let discord_copy = self.discord.clone();
         let state_copy = self.music_state.clone();
         let conn = self.connection.clone();
 
@@ -195,7 +177,7 @@ impl Bot {
                             started_at: now,
                         }));
 
-                        let discord = discord_copy.lock().unwrap();
+                        let discord = ::DISCORD.lock().unwrap();
                         let _ = discord.send_message(&requested_in,
                                                      &text,
                                                      "",
@@ -221,7 +203,7 @@ impl Bot {
         info!("[base] Connected");
 
         {
-            let mut uptime = self.uptime.lock().unwrap();
+            let mut uptime = ::UPTIME.lock().unwrap();
             uptime.connection = UTC::now();
         }
 
@@ -262,7 +244,7 @@ impl Bot {
             }
 
             {
-                let mut event_counter = self.event_counter.lock().unwrap();
+                let mut event_counter = ::EVENT_COUNTER.lock().unwrap();
                 event_counter.increment(&event);
             }
 
@@ -278,13 +260,9 @@ impl Bot {
                 debug!("[event] Handling MessageCreate");
 
                 let context = Context::new(self.connection.clone(),
-                                           self.db.clone(),
-                                           self.discord.clone(),
-                                           self.event_counter.clone(),
                                            message,
                                            self.music_state.clone(),
-                                           self.state.clone(),
-                                           self.uptime.clone());
+                                           self.state.clone());
                 self.increment_member_messages(&context);
 
                 thread::spawn(move || {
@@ -326,7 +304,7 @@ impl Bot {
     }
 
     fn handle_server_create(&mut self, server: LiveServer) {
-        let db = self.db.lock().unwrap();
+        let db = ::DB.lock().unwrap();
         let exists: PgRes = db.query("select id from guilds where id = $1",
                                      &[&(server.id.0 as i64)]);
 
@@ -359,7 +337,7 @@ impl Bot {
     }
 
     fn handle_server_delete(&mut self, server_id: ServerId) {
-        let db = self.db.lock().unwrap();
+        let db = ::DB.lock().unwrap();
         let update = db.execute("update guilds set active = $1 where id = $2",
                                 &[&false, &(server_id.0 as i64)]);
         drop(db);
@@ -379,7 +357,7 @@ impl Bot {
                                    server_id: ServerId,
                                    user: DiscordUser,
                                    nick: Option<String>) {
-        let db = self.db.lock().unwrap();
+        let db = ::DB.lock().unwrap();
 
         let update = db.execute(
             "update members set nick = $1 where server_id = $2 and user_id = $3",
@@ -420,7 +398,7 @@ impl Bot {
     }
 
     fn handle_server_update(&mut self, srv: Server) {
-        let db = self.db.lock().unwrap();
+        let db = ::DB.lock().unwrap();
 
         let update = db.execute(
             "update guilds set active = $2, name = $3, owner_id = $4 where id = $1",
@@ -461,7 +439,7 @@ impl Bot {
         };
         drop(state);
 
-        let db = self.db.lock().unwrap();
+        let db = ::DB.lock().unwrap();
 
         let retrieval: PgRes = db.query(
             "select id, message_count from members where server_id = $1 and user_id = $2",

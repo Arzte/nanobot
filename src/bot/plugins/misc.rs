@@ -221,7 +221,7 @@ pub fn pi(context: Context) {
 
 pub fn uptime(context: Context) {
     let text = {
-        let uptime = context.uptime.lock().unwrap();
+        let uptime = ::UPTIME.lock().unwrap();
         let boot = &uptime.boot.to_rfc3339()[..19];
         let connection = &uptime.boot.to_rfc3339()[..19];
 
@@ -256,7 +256,7 @@ pub fn weather(context: Context) {
         };
         drop(state);
 
-        let db = context.db.lock().unwrap();
+        let db = ::DB.lock().unwrap();
         let retrieval = db.query(
             "select weather_location from members where server_id = $1 and user_id = $2",
             &[&(server_id.0 as i64), &(context.message.author.id.0 as i64)]

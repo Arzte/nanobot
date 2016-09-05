@@ -15,6 +15,7 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 use chrono::{DateTime, UTC};
+use std::default::Default;
 
 pub struct Uptime {
     /// Unix timestamp of when the program itself started
@@ -23,4 +24,13 @@ pub struct Uptime {
     /// probably _technically_ be an Option, _but_ a user will never be able to
     /// request the uptime if there is no connection, so it's okay.
     pub connection: DateTime<UTC>,
+}
+
+impl Default for Uptime {
+    fn default() -> Uptime {
+        Uptime {
+            boot: UTC::now(),
+            connection: UTC::now(),
+        }
+    }
 }

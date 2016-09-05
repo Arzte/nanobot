@@ -511,7 +511,7 @@ pub fn events(context: Context) {
     };
 
 
-    let counter = context.event_counter.lock().unwrap();
+    let counter = ::EVENT_COUNTER.lock().unwrap();
     let count_map = counter.map(event_types);
     drop(counter);
 

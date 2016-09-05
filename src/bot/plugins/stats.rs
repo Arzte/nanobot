@@ -29,7 +29,7 @@ pub fn stats(context: Context) {
     };
     drop(state);
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
 
     let member_list = {
         let search_res: PgRes = db.query(

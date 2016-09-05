@@ -60,7 +60,7 @@ pub fn purge(context: Context) {
         return;
     }
 
-    let discord = context.discord.lock().unwrap();
+    let discord = ::DISCORD.lock().unwrap();
 
     let messages = match discord.get_messages(
         context.message.channel_id,

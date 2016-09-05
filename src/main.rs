@@ -43,12 +43,33 @@ mod error;
 mod ext;
 mod prelude;
 
+use bot::event_counter::EventCounter;
+use bot::Uptime;
 use bot::Bot;
 use discord::{Discord, State};
 use error::{Error, Result};
 use postgres::{Connection as PostgresConnection, SslMode};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{env, fs, thread};
+
+lazy_static! {
+    static ref DB: Arc<Mutex<PostgresConnection>> = {
+        Arc::new(Mutex::new(db_connect()))
+    };
+
+    static ref DISCORD: Arc<Mutex<Discord>> = {
+        Arc::new(Mutex::new(login().unwrap()))
+    };
+
+    static ref EVENT_COUNTER: Arc<Mutex<EventCounter>> = {
+        Arc::new(Mutex::new(EventCounter::default()))
+    };
+
+    static ref UPTIME: Arc<Mutex<Uptime>> = {
+        Arc::new(Mutex::new(Uptime::default()))
+    };
+}
 
 pub fn db_connect() -> PostgresConnection {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL");
@@ -77,20 +98,10 @@ fn main() {
     info!("[main] Starting loop");
 
     loop {
-        debug!("[main] Logging in...");
-        let discord = match login() {
-            Ok(discord) => discord,
-            Err(why) => {
-                error!("[main] Error logging in: {:?}", why);
-
-                return;
-            },
-        };
-
-        info!("[main] Logged in");
         debug!("[main] Connecting...");
 
         let (conn, state) = {
+            let discord = ::DISCORD.lock().unwrap();
             match discord.connect() {
                 Ok((conn, ready)) => (conn, State::new(ready)),
                 Err(why) => {
@@ -103,7 +114,7 @@ fn main() {
         };
 
         info!("[main] Initializing bot");
-        let mut bot = Bot::new(discord, conn, db_connect(), state);
+        let mut bot = Bot::new(conn, state);
         bot.start();
 
         // It can be assumed Discord went down or the token reset for one reason

@@ -15,53 +15,37 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 use discord::model::{ChannelId, PublicChannel, Message};
-use discord::{ChannelRef, Connection as DiscordConnection, Discord, State};
-use postgres::Connection as PgConnection;
+use discord::{ChannelRef, Connection as DiscordConnection, State};
 use regex::Regex;
 use serde::ser::Serialize;
 use std::fmt;
 use std::sync::{Arc, Mutex};
-use ::bot::event_counter::EventCounter;
 use ::bot::plugins::music::MusicState;
-use ::bot::Uptime;
 use ::prelude::*;
 
 pub struct Context {
     pub conn: Arc<Mutex<DiscordConnection>>,
-    pub db: Arc<Mutex<PgConnection>>,
-    pub discord: Arc<Mutex<Discord>>,
-    pub event_counter: Arc<Mutex<EventCounter>>,
     pub message: Message,
     pub music_state: Arc<Mutex<MusicState>>,
     pub state: Arc<Mutex<State>>,
-    pub uptime: Arc<Mutex<Uptime>>,
 }
 
 impl Context {
-    #[allow(too_many_arguments)]
     pub fn new(conn: Arc<Mutex<DiscordConnection>>,
-               db_connection: Arc<Mutex<PgConnection>>,
-               discord: Arc<Mutex<Discord>>,
-               event_counter: Arc<Mutex<EventCounter>>,
                message: Message,
                music_state: Arc<Mutex<MusicState>>,
-               state: Arc<Mutex<State>>,
-               uptime: Arc<Mutex<Uptime>>)
+               state: Arc<Mutex<State>>)
                -> Context {
         Context {
             conn: conn,
-            db: db_connection,
-            discord: discord,
-            event_counter: event_counter,
             message: message,
             music_state: music_state,
             state: state,
-            uptime: uptime,
         }
     }
 
     fn send(&self, channel_id: ChannelId, content: String) -> Result<Message> {
-        let discord = self.discord.lock().unwrap();
+        let discord = ::DISCORD.lock().unwrap();
 
         match discord.send_message(&channel_id, &content, "", false) {
             Ok(message) => Ok(message),
@@ -110,7 +94,7 @@ impl Context {
                                  message: &Message,
                                  new_content: S)
                                  -> Result<Message> {
-        let discord = self.discord.lock().unwrap();
+        let discord = ::DISCORD.lock().unwrap();
 
         match discord.edit_message(&message.channel_id,
                                    &message.id,
@@ -132,7 +116,7 @@ impl Context {
     }
 
     pub fn pm_author<S: Into<String>>(&self, content: S) -> Result<Message> {
-        let discord = self.discord.lock().unwrap();
+        let discord = ::DISCORD.lock().unwrap();
 
         let ch = match discord.create_private_channel(&self.message.author.id) {
             Ok(ch) => ch,

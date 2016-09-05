@@ -40,7 +40,7 @@ pub fn delete(context: Context) {
     };
     drop(state);
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
 
     let (tag_id, owner_id) = {
         let filter: PgRes = db.query(
@@ -137,7 +137,7 @@ pub fn get(context: Context) {
     };
     drop(state);
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
 
     let (uses, value) = {
         let filter: PgRes = db.query(
@@ -192,7 +192,7 @@ pub fn info(context: Context) {
     };
     drop(state);
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
 
     let filter: PgRes = db.query(
         "select created_at, key, owner_id, uses from tags where server_id = $1 and key = $2",
@@ -259,7 +259,7 @@ pub fn list(context: Context) {
     };
     drop(state);
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
 
     let filter = db.query("select key from tags where server_id = $1",
                           &[&(server_id.0 as i64)]);
@@ -326,7 +326,7 @@ pub fn list(context: Context) {
     if first_three.len() > 1 {
         let aid = context.message.author.id;
 
-        let discord = context.discord.lock().unwrap();
+        let discord = ::DISCORD.lock().unwrap();
         let channel = match discord.create_private_channel(&aid) {
             Ok(channel) => channel,
             Err(why) => {
@@ -386,7 +386,7 @@ pub fn rename(context: Context) {
         return;
     }
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
 
     // Check that the tag currently exists
     let res: PgRes = db.query(
@@ -515,7 +515,7 @@ pub fn search(context: Context) {
     };
     drop(state);
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
     let search_res = db.query(
         "select key from tags where server_id = $1 and key like '%$2%' limit 15",
         &[&(server_id.0 as i64), &query]
@@ -582,7 +582,7 @@ pub fn set(context: Context) {
         return;
     }
 
-    let db: PgConn = context.db.lock().unwrap();
+    let db: PgConn = ::DB.lock().unwrap();
 
     // Check if the tag exists already; we don't want to override it
     {
