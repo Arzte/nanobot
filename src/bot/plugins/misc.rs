@@ -216,16 +216,6 @@ pub fn pi(context: Context) {
     let _msg = req!(context.say(pi));
 }
 
-pub fn say(context: Context) {
-    let text = context.text(0);
-
-    if text.is_empty() {
-        return;
-    }
-
-    let _msg = req!(context.say(text));
-}
-
 pub fn uptime(context: Context) {
     let text = {
         let uptime = context.uptime.lock().unwrap();

@@ -229,11 +229,6 @@ See You Space Cowboy...
 Example:
 
 `;roulette` --> "BANG! @you was shot""#);
-        map.insert("say", r#"Makes nano say something.
-
-Example:
-
-`;say hi!`"#);
         map.insert("search", r#"Searches for a tag by key name.
 
 Example:

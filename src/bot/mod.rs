@@ -636,7 +636,6 @@ fn handle_message(context: Context) {
         "roleinfo" => meta::role_info(context),
         "roll" => random::roll(context),
         "roulette" => random::roulette(context),
-        "say" => misc::say(context),
         "search" => tags::search(context),
         "serverinfo" => meta::server_info(context),
         "setstatus" => meta::set_status(context),
