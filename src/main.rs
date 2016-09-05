@@ -14,8 +14,6 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-#![cfg_attr(feature = "nightly", feature(custom_attribute, custom_derive, plugin))]
-#![cfg_attr(feature = "nightly", plugin(dotenv_macros))]
 #![allow(unknown_lints)]
 
 #[macro_use]
