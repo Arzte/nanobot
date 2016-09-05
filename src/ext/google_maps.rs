@@ -16,7 +16,7 @@
 
 use hyper::Client;
 use serde_json::{self, Value};
-use ::error::{Error, Result};
+use ::prelude::*;
 use ::utils::{decode_array, into_map, into_string, opt, remove};
 
 #[derive(Clone, Debug)]
@@ -117,7 +117,7 @@ pub fn get_address<S: Into<String>>(address: S) -> Result<LocationData> {
     let response = match Client::new().get(&url).send() {
         Ok(response) => response,
         Err(why) => {
-            warn!("[google-maps] err getting loc {}: {:?}", address, why);
+            warn!("[google-maps] Err getting '{}': {:?}", address, why);
 
             return Err(Error::Hyper(why));
         },
@@ -126,7 +126,7 @@ pub fn get_address<S: Into<String>>(address: S) -> Result<LocationData> {
     match LocationData::decode(try!(serde_json::from_reader(response))) {
         Ok(data) => Ok(data),
         Err(why) => {
-            warn!("[google-maps] err decoding loc {}: {:?}", address, why);
+            warn!("[google-maps] Err decoding '{}': {:?}", address, why);
 
             Err(why)
         },

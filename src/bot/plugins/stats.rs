@@ -31,23 +31,25 @@ pub fn stats(context: Context) {
 
     let db: PgConn = context.db.lock().unwrap();
 
-    let search_res: PgRes = db.query(
-        "select id, message_count, user_id from members where server_id = $1
-         order by message_count desc limit 30",
-        &[&(server_id.0 as i64)]
-    );
+    let member_list = {
+        let search_res: PgRes = db.query(
+            "select id, message_count, user_id from members where server_id = $1
+             order by message_count desc limit 30",
+            &[&(server_id.0 as i64)]
+        );
 
-    let member_list = match search_res {
-        Ok(rows) => rows,
-        Err(why) => {
-            warn!("[stats] Err getting members for guild {}: {:?}",
-                  server_id,
-                  why);
+        match search_res {
+            Ok(rows) => rows,
+            Err(why) => {
+                warn!("[stats] Err getting members for guild {}: {:?}",
+                      server_id,
+                      why);
 
-            let _msg = req!(context.say("Error generating list"));
+                let _msg = req!(context.say("Error generating list"));
 
-            return;
-        },
+                return;
+            },
+        }
     };
 
     if member_list.is_empty() {
@@ -61,11 +63,8 @@ pub fn stats(context: Context) {
 
     for member in member_list.iter() {
         let user_id: i64 = member.get(2);
-        let params: Params = vec![
-            &user_id,
-        ];
-        let user_res: PgRes = db.query("select username from users where
-                                            id = $1", &params);
+        let user_res: PgRes = db.query("select username from users where id = $1",
+                                       &[&user_id]);
 
         let user = match user_res {
             Ok(ref rows) if !rows.is_empty() => rows.get(0),

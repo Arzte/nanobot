@@ -42,10 +42,10 @@ pub fn define(context: Context) {
 
     definition.example.truncate(1900 - define.len());
 
-    let text = format!(r#"**{}**
-{}
-
-Example: _{}_"#, definition.word, define, definition.example);
+    let text = format!("**{}**{}\n\nExample: _{}_",
+                       definition.word,
+                       define,
+                       definition.example);
 
     let _msg = req!(context.say(text));
 }

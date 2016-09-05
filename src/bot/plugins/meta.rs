@@ -327,7 +327,7 @@ pub fn about(context: Context) {
     let _msg = req!(context.say(format!(r#"
 nano v{}
 
-Developed by zey (<@114941315417899012>)
+Developed by zey (ID: 114941315417899012)
 Library: discord-rs
 
 nano is a general-purpose, jack-of-all trades bot that can do just about
@@ -357,7 +357,7 @@ pub fn big_emoji(context: Context) {
     // A fast way to check this. This will technically have the ability to
     // provide a false error message (such as when someone args "test").
     if !arg.starts_with('<') {
-        let _msg = req!(context.say("Can not process regular emojis"));
+        let _msg = req!(context.say("Can only process custom emojis"));
 
         return;
     }
@@ -471,13 +471,13 @@ pub fn channel_info(context: Context) {
      Type: {}
   Created: {}"#, channel.name,
                  channel.id,
-                 channel.topic.as_ref().unwrap_or(&String::new()),
+                 channel.topic.unwrap_or(String::new()),
                  channel.kind.name(),
                  created_at);
 
     if channel.kind == ChannelType::Voice {
         text.push_str(&format!(r#"
-  Bitrate: {}kbps
+   Bitrate: {}kbps
 User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
 channel.user_limit.unwrap_or(0)));
     }
@@ -599,8 +599,9 @@ pub fn ping(context: Context) {
 pub fn role_info(context: Context) {
     let name = context.text(0);
 
-    let role = {
+    let text = {
         let state = context.state.lock().unwrap();
+
         let server = match state.find_channel(&context.message.channel_id) {
             Some(ChannelRef::Public(server, _channel)) => server,
             _ => {
@@ -622,23 +623,15 @@ pub fn role_info(context: Context) {
         };
 
         if let Some(role) = opt {
-            role.clone()
-        } else {
-            let _msg = req!(context.say("Role not found"));
+            let created_at = {
+                let secs = role.id.creation_date().sec;
 
-            return;
-        }
-    };
+                NaiveDateTime::from_timestamp(secs, 0)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string()
+            };
 
-    let created_at = {
-        let secs = role.id.creation_date().sec;
-
-        NaiveDateTime::from_timestamp(secs, 0)
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string()
-    };
-
-    let info = format!(r#"```xl
+            format!(r#"```xl
        Name: {}
          ID: {}
     Hoisted: {}
@@ -647,9 +640,15 @@ Mentionable: {}
                       role.id,
                       role.hoist,
                       role.mentionable,
-                      created_at);
+                      created_at)
+        } else {
+            let _msg = req!(context.say("Role not found"));
 
-    let _msg = req!(context.say(info));
+            return;
+        }
+    };
+
+    let _msg = req!(context.say(text));
 }
 
 pub fn server_info(context: Context) {
@@ -663,29 +662,11 @@ pub fn server_info(context: Context) {
         },
     };
 
-    let owner_info = {
-        let mut owner_info = None;
-
-        'servers: for server_iter in state.servers() {
-            if server_iter.id != server.id {
-                continue;
-            }
-
-            for member in &server_iter.members {
-                owner_info = Some(format!("{}#{}",
-                                          member.user.name,
-                                          member.user.discriminator));
-
-                break 'servers;
-            }
-        }
-
-        if let Some(owner_info) = owner_info {
-            owner_info
-        } else {
-            String::from("Unknown")
-        }
-    };
+    let owner_info = server.members
+        .iter()
+        .find(|member| member.user.id == server.owner_id)
+        .map(|owner| format!("{}#{}", owner.user.name, owner.user.discriminator))
+        .unwrap_or(String::from("Unknown"));
 
     let mut channels = [0, 0];
 
@@ -700,6 +681,11 @@ pub fn server_info(context: Context) {
             _ => {},
         }
     }
+
+    let created_at = NaiveDateTime::from_timestamp(server.id.creation_date().sec,
+                                                   0)
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
 
     let text = format!(r#"```xl
 Name: {}
@@ -716,7 +702,7 @@ Icon: {}```"#, server.name,
                server.member_count,
                channels[0],
                channels[1],
-               server.id.creation_date().sec,
+               created_at,
                server.icon_url().unwrap_or("N/A".to_owned()));
 
     let _msg = req!(context.say(text));

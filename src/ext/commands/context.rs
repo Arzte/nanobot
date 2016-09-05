@@ -66,29 +66,27 @@ impl Context {
         match discord.send_message(&channel_id, &content, "", false) {
             Ok(message) => Ok(message),
             Err(why) => {
-                error!("[send] Err sending: {:?}", why);
+                error!("[send] Err sending to channel {}: {:?}",
+                       channel_id,
+                       why);
 
                 Err(Error::Discord(why))
             },
         }
     }
 
-    pub fn arg(&self, number: u8) -> ContextArg {
+    pub fn arg(&self, number: usize) -> ContextArg {
         let split: (&str, &str) = self.message.content.split_at(';'.len_utf8());
-        let mut commands: Vec<&str> = split.1.split_whitespace().collect();
-        let len = commands.len();
 
-        if len > 0 && number as usize <= len - 1 {
-            ContextArg(Some(commands.remove(number as usize)))
-        } else {
-            ContextArg(None)
-        }
+        ContextArg(split.1.split_whitespace().nth(number))
     }
 
     pub fn channel_mentions(&self) -> Vec<PublicChannel> {
         let re = Regex::new(r"<#([0-9]+)>").unwrap();
 
         let mut channels = vec![];
+
+        let state = self.state.lock().unwrap();
 
         for pos in re.find_iter(&self.message.content) {
             let id_as_str = &self.message.content[pos.0..pos.1]
@@ -100,13 +98,9 @@ impl Context {
                 Err(_why) => continue,
             };
 
-            let state = self.state.lock().unwrap();
-
             if let Some(ChannelRef::Public(_, ch)) = state.find_channel(&id) {
                 channels.push(ch.clone());
             }
-
-            drop(state);
         }
 
         channels
@@ -123,7 +117,7 @@ impl Context {
                                    &new_content.into()) {
             Ok(message) => Ok(message),
             Err(why) => {
-                warn!("[edit] Err editing: {:?}", why);
+                warn!("[edit] Err editing {}: {:?}", message.id, why);
 
                 Err(Error::Discord(why))
             },
@@ -143,7 +137,9 @@ impl Context {
         let ch = match discord.create_private_channel(&self.message.author.id) {
             Ok(ch) => ch,
             Err(why) => {
-                error!("[pm_author] Err opening private channel: {:?}", why);
+                error!("[pm_author] Err opening private channel for {}: {:?}",
+                       self.message.author.id,
+                       why);
 
                 return Err(Error::Discord(why));
             },
@@ -155,7 +151,9 @@ impl Context {
     }
 
     pub fn reply<S: Into<String>>(&self, content: S) -> Result<Message> {
-        let reply = format!("{}: {}", self.message.author.mention(), content.into());
+        let reply = format!("{}: {}",
+                            self.message.author.mention(),
+                            content.into());
 
         self.send(self.message.channel_id, reply)
     }
@@ -177,11 +175,7 @@ pub struct ContextArg<'a>(Option<&'a str>);
 
 impl<'a> ContextArg<'a> {
     fn check<S: Serialize>(&self, v: Option<S>) -> Result<S> {
-        if let Some(v) = v {
-            Ok(v)
-        } else {
-            Err(Error::Decode)
-        }
+        v.ok_or(Error::Decode)
     }
 
     pub fn as_str(&self) -> Result<&str> {
@@ -189,19 +183,15 @@ impl<'a> ContextArg<'a> {
     }
 
     pub fn as_u64(&self) -> Result<u64> {
-        if let Some(inner) = self.0 {
-            Ok(try!(inner.parse::<u64>()))
-        } else {
-            Err(Error::Decode)
-        }
+        self.0
+            .ok_or(Error::Decode)
+            .and_then(|v| Ok(try!(v.parse::<u64>())))
     }
 
     pub fn as_isize(&self) -> Result<isize> {
-        if let Some(inner) = self.0 {
-            Ok(try!(inner.parse::<isize>()))
-        } else {
-            Err(Error::Decode)
-        }
+        self.0
+            .ok_or(Error::Decode)
+            .and_then(|v| Ok(try!(v.parse::<isize>())))
     }
 
     pub fn exists(&self) -> bool {
@@ -211,10 +201,6 @@ impl<'a> ContextArg<'a> {
 
 impl<'a> fmt::Display for ContextArg<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(inner) = self.0 {
-            write!(f, "{}", inner)
-        } else {
-            write!(f, "{}", "None")
-        }
+        write!(f, "{}", self.0.unwrap_or("None"))
     }
 }

@@ -168,7 +168,7 @@ impl EventCounter {
             Event::ServerUpdate(_) => EventType::ServerUpdate,
             Event::TypingStart { .. } => EventType::TypingStart,
             Event::Unknown(ref name, ref map) => {
-                error!("Unknown event {}: {:?}", name, map);
+                error!("[increment] Unknown event {}: {:?}", name, map);
 
                 EventType::Unknown
             },

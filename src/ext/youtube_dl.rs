@@ -19,7 +19,7 @@ use serde_json::{self, Value};
 use std::fs::File;
 use std::path::Path;
 use std::process::Command;
-use ::error::{Error, Result};
+use ::prelude::*;
 use ::utils::{into_map, into_string, remove};
 
 #[derive(Clone, Debug)]
@@ -87,15 +87,17 @@ pub fn download(url: &str) -> Result<Response> {
     let cmd = match cmd_res {
         Ok(cmd) => cmd,
         Err(why) => {
-            warn!("downloading {}: {:?}", url, why);
+            warn!("[download] Err downloading '{}': {:?}", url, why);
 
             return Err(Error::YoutubeDL("Error downloading song".to_owned()));
         },
     };
 
     if !cmd.status.success() {
-        warn!("exit code downloading {}: {:?}", url, cmd.status.code());
-        warn!("ytdl stderr: {:?}", cmd.stderr);
+        warn!("[download] Exit code downloading '{}': {:?}",
+              url,
+              cmd.status.code());
+        warn!("[download] youtube-dl stderr: {:?}", cmd.stderr);
 
         return Err(Error::YoutubeDL("Error downloading song".to_owned()));
     }
@@ -105,9 +107,7 @@ pub fn download(url: &str) -> Result<Response> {
     let file = match File::open(Path::new(&json_path)) {
         Ok(file) => file,
         Err(why) => {
-            warn!("opening {}: {:?}", json_path, why);
-
-            println!("{:?}", why);
+            warn!("[download] Err opening '{}': {:?}", json_path, why);
 
             return Err(Error::YoutubeDL("Error getting song info".to_owned()));
         },
@@ -116,7 +116,7 @@ pub fn download(url: &str) -> Result<Response> {
     let data = match YoutubeDLData::decode(try!(serde_json::from_reader(file))) {
         Ok(data) => data,
         Err(why) => {
-            warn!("parsing {}: {:?}", json_path, why);
+            warn!("[download] Err parsing '{}': {:?}", json_path, why);
 
             return Err(Error::YoutubeDL("Error parsing song info".to_owned()));
         },

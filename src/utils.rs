@@ -16,23 +16,13 @@
 
 use serde_json::Value;
 use std::collections::BTreeMap;
-use ::error::{Error, Result};
+use ::prelude::*;
 
 #[macro_escape]
 macro_rules! req {
     ($expr:expr) => {
         match $expr {
             Ok(v) => v,
-            Err(_why) => return,
-        }
-    }
-}
-
-#[macro_escape]
-macro_rules! arc {
-    ($db:expr) => {
-        match ::std::sync::Arc::try_unwrap($db.clone()) {
-            Ok(db) => db,
             Err(_why) => return,
         }
     }
@@ -83,6 +73,5 @@ pub fn opt<T, F>(map: &mut BTreeMap<String, Value>,
 }
 
 pub fn remove(map: &mut BTreeMap<String, Value>, key: &str) -> Result<Value> {
-    map.remove(key)
-        .ok_or(Error::Decode)
+    map.remove(key).ok_or(Error::Decode)
 }

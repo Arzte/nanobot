@@ -14,8 +14,7 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use hummingbird::ShowType;
-use hummingbird;
+use hummingbird::{self, ShowType};
 use ::prelude::*;
 
 pub fn anime(context: Context) {
@@ -32,7 +31,7 @@ pub fn anime(context: Context) {
     let animes = match hummingbird::search_anime(&text[..]) {
         Ok(animes) => animes,
         Err(why) => {
-            warn!("[anime] err getting {}: {:?}", text, why);
+            warn!("[anime] Err getting '{}': {:?}", text, why);
 
             let _msg = req!(context.edit(&msg, "Error retrieving anime"));
 
@@ -46,27 +45,18 @@ pub fn anime(context: Context) {
         return;
     }
 
-    let found = animes.iter()
+    let anime = animes.iter()
         .take(3)
-        .find(|anime| anime.kind == ShowType::TV);
-
-    let anime = if let Some(anime) = found {
-        anime
-    } else {
-        // this is actually safe, we've already performed a check above
-        unsafe {
-            animes.get_unchecked(0)
-        }
-    };
-
-    let started = match anime.started_airing {
-        Some(ref time) => &time[..],
-        None => "N/A",
-    };
-    let finished = match anime.finished_airing {
-        Some(ref time) => &time[..],
-        None => "N/A",
-    };
+        .find(|anime| anime.kind == ShowType::TV)
+        .unwrap_or(unsafe { animes.get_unchecked(0) });
+    let started = anime.started_airing
+        .as_ref()
+        .map(|v| &v[..])
+        .unwrap_or("N/A");
+    let finished = anime.finished_airing
+        .as_ref()
+        .map(|v| &v[..])
+        .unwrap_or("N/A");
 
     let info = format!(r#"**{}**
 Hummingbird: {}

@@ -61,15 +61,19 @@ pub fn purge(context: Context) {
     }
 
     let discord = context.discord.lock().unwrap();
+
     let messages = match discord.get_messages(
         context.message.channel_id,
         GetMessages::Before(context.message.id),
         Some(amount)
-        ) {
+    ) {
         Ok(messages) => messages,
         Err(why) => {
-            let text = format!("Error getting messages: {:?}", why);
-            let _msg = req!(context.say(text));
+            warn!("[purge] Error getting messages for {}: {:?}",
+                  context.message.channel_id,
+                  why);
+
+            let _msg = req!(context.say("Error retrieving messages to purge"));
 
             return;
         },
@@ -83,6 +87,8 @@ pub fn purge(context: Context) {
 
     let deletion = discord.delete_messages(context.message.channel_id,
                                            &message_ids);
+
+    drop(discord);
 
     if let Err(why) = deletion {
         let text = format!("Error deleting messages: {:?}", why);

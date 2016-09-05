@@ -20,21 +20,21 @@ use discord::ChannelRef;
 use ::prelude::*;
 
 pub fn delete(context: Context) {
-    let key_ = context.text(0);
+    let key = context.text(0);
     let aid = context.message.author.id;
     let cid = ChannelId(context.message.channel_id.0 as u64);
 
     let state = context.state.lock().unwrap();
     let (server_id, perms) = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => {
-            let id = server.id;
             let perms = server.permissions_for(cid, aid)
                 .contains(permissions::MANAGE_MESSAGES);
 
-            (id, perms)
+            (server.id, perms)
         },
         _ => {
             let _msg = req!(context.say("Could not find server"));
+
             return;
         },
     };
@@ -45,7 +45,7 @@ pub fn delete(context: Context) {
     let (tag_id, owner_id) = {
         let filter: PgRes = db.query(
             "select id, owner_id from tags where server_id = $1 and key = $2",
-            &[&(server_id.0 as i64), &key_]
+            &[&(server_id.0 as i64), &key]
         );
 
         match filter {
@@ -64,7 +64,7 @@ pub fn delete(context: Context) {
             Err(why) => {
                 warn!("[delete] Err getting '{}' for {}: {:?}",
                       server_id,
-                      key_,
+                      key,
                       why);
 
                 let _msg = req!(context.say("Error finding tag"));
@@ -74,9 +74,8 @@ pub fn delete(context: Context) {
         }
     };
 
-    let can_delete = owner_id == context.message.author.id.0 as i64 || perms;
-
-    if !can_delete {
+    // Check if the user does _not_ have permission tod elete this tag
+    if !(owner_id == context.message.author.id.0 as i64 || perms) {
         drop(db);
 
         let _msg = req!(context.say("You do not have permission to delete this tag."));
@@ -88,56 +87,43 @@ pub fn delete(context: Context) {
 
     drop(db);
 
-    match delete {
-        Ok(1) => {
-            let _msg = req!(context.say("Deleted tag"));
-        },
-        Ok(0) => {
-            let _msg = req!(context.say("No tag deleted"));
-        },
+    let _msg = match delete {
+        Ok(1) => req!(context.say("Deleted tag")),
+        Ok(0) => req!(context.say("No tag deleted")),
         Ok(amount) => {
             warn!("[delete] Multiple deleted for '{}' in {}: {}",
                   server_id,
-                  key_,
+                  key,
                   amount);
 
-            let _msg = req!(context.say("Multiple tags deleted somehow"));
+            req!(context.say("Multiple tags deleted somehow"))
         },
         Err(why) => {
             warn!("[delete] Err deleting tag '{}' in {}: {:?}",
                   server_id,
-                  key_,
+                  key,
                   why);
 
-            let _msg = req!(context.say("Error deleting tag"));
+            req!(context.say("Error deleting tag"))
         },
-    }
+    };
 }
 
 pub fn get(context: Context) {
     let arg = context.arg(0);
     let arg2 = context.arg(1);
-    let mut name = None;
+    let key = arg.as_str()
+        .ok()
+        .and_then(|v| if v == "get" {
+            Some("get")
+        } else {
+            None
+        })
+        .or_else(|| arg2.as_str().ok());
 
-    if let Ok(arg) = arg.as_str() {
-        if arg != "get" {
-            name = Some(arg);
-        }
-    }
-
-    if name.is_none() {
-        if let Ok(arg) = arg2.as_str() {
-            name = Some(arg);
-        }
-    }
-
-    let user_key = match name {
-        Some(user_key) => user_key,
-        None => {
-            let _msg = req!(context.say("No tag name given"));
-
-            return;
-        },
+    let key = match key {
+        Some(key) => key,
+        None => return,
     };
 
     let state = context.state.lock().unwrap();
@@ -156,7 +142,7 @@ pub fn get(context: Context) {
     let (uses, value) = {
         let filter: PgRes = db.query(
             "select uses, value from tags where server_id = $1 and key = $2",
-            &[&(server_id.0 as i64), &user_key]
+            &[&(server_id.0 as i64), &key]
         );
 
         match filter {
@@ -169,10 +155,7 @@ pub fn get(context: Context) {
             },
             Ok(_rows) => return,
             Err(why) => {
-                warn!("[get] Err getting '{}' on {}: {:?}",
-                      server_id,
-                      user_key,
-                      why);
+                warn!("[get] Err getting '{}' on {}: {:?}", server_id, key, why);
 
                 return;
             },
@@ -181,7 +164,7 @@ pub fn get(context: Context) {
 
     let update = db.execute(
         "update tags set uses = $1 where server_id = $2 and key = $3",
-        &[&(uses + 1), &(server_id.0 as i64), &user_key]
+        &[&(uses + 1), &(server_id.0 as i64), &key]
     );
 
     drop(db);

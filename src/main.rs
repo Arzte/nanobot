@@ -44,10 +44,7 @@ mod ext;
 mod prelude;
 
 use bot::Bot;
-use discord::{
-    Discord,
-    State,
-};
+use discord::{Discord, State};
 use error::{Error, Result};
 use postgres::{Connection as PostgresConnection, SslMode};
 use std::time::Duration;
@@ -83,7 +80,11 @@ fn main() {
         debug!("[main] Logging in...");
         let discord = match login() {
             Ok(discord) => discord,
-            Err(_why) => return,
+            Err(why) => {
+                error!("[main] Error logging in: {:?}", why);
+
+                return;
+            },
         };
 
         info!("[main] Logged in");
@@ -92,10 +93,11 @@ fn main() {
         let (conn, state) = {
             match discord.connect() {
                 Ok((conn, ready)) => (conn, State::new(ready)),
-                Err(_why) => {
-                    warn!("[main] Error making a connection");
+                Err(why) => {
+                    warn!("[main] Error making a connection: {:?}", why);
+                    thread::sleep(Duration::from_secs(900));
 
-                    return;
+                    continue;
                 },
             }
         };
