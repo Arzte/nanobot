@@ -24,13 +24,3 @@ urbandictionary = "0.1"
 doc = true
 name = "nanobot"
 path = "./src/main.rs"
-
-[[bin]]
-doc = false
-name = "get-channel-history"
-path = "./bin/get_channel_history.rs"
-
-[[bin]]
-doc = false
-name = "tags-v1-to-v2"
-path = "./bin/tags_v1_to_v2.rs"
