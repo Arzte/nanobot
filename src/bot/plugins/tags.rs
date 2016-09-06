@@ -404,19 +404,9 @@ pub fn rename(context: Context) {
     );
 
     let tag_ = match res {
-        Ok(ref rows) if rows.len() == 1 => rows.get(0),
+        Ok(ref rows) if !rows.is_empty() => rows.get(0),
         Ok(ref rows) if rows.is_empty() => {
             let _msg = req!(context.say("Tag not found"));
-
-            return;
-        },
-        Ok(ref rows) => {
-            warn!("[rename] Multiple tags for '{}' found in {}: {}'",
-                  key_old,
-                  server.id,
-                  rows.len());
-
-            let _msg = req!(context.say("Error retrieving tag"));
 
             return;
         },
