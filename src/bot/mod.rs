@@ -361,7 +361,7 @@ impl Bot {
         let db = ::DB.lock().unwrap();
 
         let update = db.execute(
-            "update members set nick = $1 where server_id = $2 and user_id = $3",
+            "update members set nickname = $1 where server_id = $2 and user_id = $3",
             &[&nick, &(server_id.0 as i64), &(user.id.0 as i64)]
         );
 
