@@ -478,7 +478,7 @@ pub fn skip(context: Context) {
 
             drop(state);
 
-            let text = format!("Skip vote added [currently: {}/{}",
+            let text = format!("Skip vote added [currently: {}/{}]",
                                current.0,
                                current.1);
             let _msg = req!(context.say(text));
