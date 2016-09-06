@@ -110,20 +110,30 @@ pub fn delete(context: Context) {
 }
 
 pub fn get(context: Context) {
-    let arg = context.arg(0);
-    let arg2 = context.arg(1);
     let mut name = None;
 
-    if let Ok(arg) = arg.as_str() {
-        if arg != "get" {
+    {
+        let text = context.text(0);
+        let arg = context.arg(0);
+        let arg0 = req!(arg.as_str());
+
+        if !text.is_empty() && arg0 == "get" {
             name = Some(context.text(0));
         }
     }
 
     if name.is_none() {
-        if let Ok(arg) = arg2.as_str() {
-            name = Some(context.text(1));
+        let arg = context.arg(0);
+        let text = context.text(0);
+        let mut fmt = String::new();
+        fmt.push_str(req!(arg.as_str()));
+
+        if !text.is_empty() {
+            fmt.push(' ');
+            fmt.push_str(&text[..]);
         }
+
+        name = Some(fmt);
     }
 
     let key = match name {
