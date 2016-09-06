@@ -112,16 +112,21 @@ pub fn delete(context: Context) {
 pub fn get(context: Context) {
     let arg = context.arg(0);
     let arg2 = context.arg(1);
-    let key = arg.as_str()
-        .ok()
-        .and_then(|v| if v == "get" {
-            Some("get")
-        } else {
-            None
-        })
-        .or_else(|| arg2.as_str().ok());
+    let mut name = None;
 
-    let key = match key {
+    if let Ok(arg) = arg.as_str() {
+        if arg != "get" {
+            name = Some(arg);
+        }
+    }
+
+    if name.is_none() {
+        if let Ok(arg) = arg2.as_str() {
+            name = Some(arg);
+        }
+    }
+
+    let key = match name {
         Some(key) => key,
         None => return,
     };
@@ -146,14 +151,18 @@ pub fn get(context: Context) {
         );
 
         match filter {
-            Ok(ref rows) if rows.len() == 1 => {
+            Ok(ref rows) if !rows.is_empty() => {
                 let tag = rows.get(0);
                 let uses: i32 = tag.get(0);
                 let value: String = tag.get(1);
 
                 (uses, value)
             },
-            Ok(_rows) => return,
+            Ok(_rows) => {
+                let _msg = req!(context.say("Tag not found"));
+
+                return;
+            },
             Err(why) => {
                 warn!("[get] Err getting '{}' on {}: {:?}", server_id, key, why);
 
@@ -594,6 +603,8 @@ pub fn set(context: Context) {
         match exists {
             Ok(ref rows) if !rows.is_empty() => {
                 let _msg = req!(context.say("Tag already exists"));
+
+                return;
             },
             Ok(_) => {},
             Err(why) => {
