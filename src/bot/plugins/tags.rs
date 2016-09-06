@@ -159,8 +159,6 @@ pub fn get(context: Context) {
                 (uses, value)
             },
             Ok(_rows) => {
-                let _msg = req!(context.say("Tag not found"));
-
                 return;
             },
             Err(why) => {
