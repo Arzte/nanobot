@@ -116,13 +116,13 @@ pub fn get(context: Context) {
 
     if let Ok(arg) = arg.as_str() {
         if arg != "get" {
-            name = Some(arg);
+            name = Some(context.text(0));
         }
     }
 
     if name.is_none() {
         if let Ok(arg) = arg2.as_str() {
-            name = Some(arg);
+            name = Some(context.text(1));
         }
     }
 
