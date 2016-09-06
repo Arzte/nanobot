@@ -405,7 +405,7 @@ pub fn rename(context: Context) {
 
     let tag_ = match res {
         Ok(ref rows) if !rows.is_empty() => rows.get(0),
-        Ok(ref rows) if rows.is_empty() => {
+        Ok(_) => {
             let _msg = req!(context.say("Tag not found"));
 
             return;
