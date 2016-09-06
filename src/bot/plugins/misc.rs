@@ -179,6 +179,8 @@ pub fn mfw(context: Context) {
 }
 
 pub fn pi(context: Context) {
+    let config = PiAvailable::get(req!(get_location(&context)));
+
     let mut pi = r#"
         1415926535897932384626433832795028841971693993751058209749445923078
         1640628620899862803482534211706798214808651328230664709384460955058

@@ -14,10 +14,12 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-pub use ::ext::commands::Context;
 pub use error::{Error, Result};
 pub use postgres::types::FromSql;
 pub use postgres::rows::Rows;
+pub use ::bot::config::*;
+pub use ::ext::commands::Context;
+pub use ::utils::get_location;
 
 use postgres::types::ToSql;
 use postgres::{Connection as PgConnection, Result as PgResult};

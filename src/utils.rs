@@ -14,6 +14,8 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+use discord::model::{ChannelId, ServerId};
+use discord::ChannelRef;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use ::prelude::*;
@@ -32,6 +34,15 @@ macro_rules! req {
 macro_rules! reqf {
     ($opt:expr) => {
         try!($opt.ok_or(Error::Decode))
+    }
+}
+
+pub fn get_location(context: &Context) -> Result<(ServerId, ChannelId)> {
+    let state = context.state.lock().unwrap();
+
+    match state.find_channel(&context.message.channel_id) {
+        Some(ChannelRef::Public(server, channel)) => Ok((server.id, channel.id)),
+        _ => Err(Error::Decode),
     }
 }
 

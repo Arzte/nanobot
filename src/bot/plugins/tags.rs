@@ -591,10 +591,16 @@ pub fn set(context: Context) {
             &[&(server_id.0 as i64), &key_]
         );
 
-        if let Ok(_tag) = exists {
-            let _msg = req!(context.say("Tag already exists"));
+        match exists {
+            Ok(ref rows) if !rows.is_empty() => {
+                let _msg = req!(context.say("Tag already exists"));
+            },
+            Ok(_) => {},
+            Err(why) => {
+                warn!("[set] Err connecting to db: {:?}", why);
 
-            return;
+                let _msg = req!(context.say("Error setting tag"));
+            },
         }
     }
 
@@ -611,7 +617,7 @@ pub fn set(context: Context) {
     drop(db);
 
     match creation {
-        Ok(_tag) => {
+        Ok(_amount) => {
             let _msg = req!(context.say("Tag created"));
         },
         Err(why) => {

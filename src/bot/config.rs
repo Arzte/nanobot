@@ -14,13 +14,14 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+use discord::model::{ChannelId, ServerId};
 use serde_json::Value;
+use std::default::Default;
 use std::i64;
+use ::prelude::*;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Ord, PartialOrd)]
 enum Availability {
-    /// Only those with the 'Bot Commander' role can use the command
-    BotCommander,
     /// No one can use the command
     Disabled,
     /// Everyone can use the command
@@ -28,18 +29,18 @@ enum Availability {
 }
 
 impl Availability {
+    #[allow(dead_code)]
     pub fn from_num(num: u8) -> Option<Availability> {
         match num {
             0 => Some(Availability::Disabled),
             1 => Some(Availability::Enabled),
-            2 => Some(Availability::BotCommander),
             _ => None,
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_str(name: &str) -> Option<Availability> {
         match name {
-            "commander" | "2" => Some(Availability::BotCommander),
             "disabled" | "0" => Some(Availability::Disabled),
             "enabled" | "1" => Some(Availability::Enabled),
             _ => None,
@@ -50,7 +51,6 @@ impl Availability {
         match *self {
             Availability::Disabled => 0,
             Availability::Enabled => 1,
-            Availability::BotCommander => 2,
         }
     }
 }
@@ -73,11 +73,16 @@ impl ConfigType {
     }
 }
 
+pub struct ConfigItem {
+    kind: ConfigType,
+    value: Value,
+}
+
 macro_rules! config {
     ($name:ident, $key:expr, $kind:path, $default:expr, $desc:expr) => {
         /// $desc
         #[derive(Clone, Debug)]
-        struct $name {
+        pub struct $name {
             default: Value,
             description: String,
             key: String,
@@ -86,8 +91,8 @@ macro_rules! config {
             kind: ConfigType,
         }
 
-        impl $name {
-            pub fn new() -> $name {
+        impl Default for $name {
+            fn default() -> $name {
                 $name {
                     default: $default,
                     description: String::from($desc),
@@ -98,12 +103,14 @@ macro_rules! config {
                 }
             }
         }
+
+        config_impl!($name, $kind);
     };
 
     ($name:ident, $key:expr, $kind:path, $default:expr, $min:expr, $max:expr, $desc:expr) => {
         /// $desc
         #[derive(Clone, Debug)]
-        struct $name {
+        pub struct $name {
             default: Value,
             description: String,
             key: String,
@@ -112,8 +119,8 @@ macro_rules! config {
             kind: ConfigType,
         }
 
-        impl $name {
-            pub fn new() -> $name {
+        impl Default for $name {
+            fn default() -> $name {
                 $name {
                     default: $default,
                     description: String::from($desc),
@@ -124,7 +131,80 @@ macro_rules! config {
                 }
             }
         }
+
+        config_impl!($name, $kind);
     };
+}
+
+macro_rules! config_impl {
+    ($name:ident, $kind:path) => {
+        impl $name {
+            #[allow(dead_code)]
+            pub fn get(location: (ServerId, ChannelId)) -> ConfigItem {
+                let server_id = location.0;
+                let channel_id = location.1;
+
+                let db = ::DB.lock().unwrap();
+
+                let res: PgRes = db.query(
+                    "select id, channel_id, key, kind, server_id, value
+                     from configs where (channel_id = $1 and server_id = $2)
+                     or server_id = $2 order by channel_id desc limit 1",
+                    &[&(channel_id.0 as i64), &(server_id.0 as i64)]
+                );
+
+                match res {
+                    Ok(ref rows) if rows.len() > 0 => {
+                        let row = rows.get(0);
+
+                        let kind_from_db: i16 = row.get(3);
+                        let value: String = row.get(5);
+
+                        let kind = ConfigType::from_num(kind_from_db as u8)
+                            .unwrap();
+
+                        let v = match kind {
+                            ConfigType::Availability => {
+                                Value::U64(value.parse::<u64>().unwrap())
+                            },
+                            ConfigType::Int => {
+                                Value::I64(value.parse::<i64>().unwrap())
+                            },
+                            ConfigType::String => {
+                                Value::String(value)
+                            },
+                        };
+
+                        ConfigItem {
+                            kind: kind,
+                            value: v,
+                        }
+                    },
+                    Ok(_rows) => {
+                        let default = $name::default();
+
+                        ConfigItem {
+                            kind: $kind,
+                            value: default.default,
+                        }
+                    },
+                    Err(why) => {
+                        warn!("[get] Err getting key for '{}/{}': {:?}",
+                              server_id,
+                              channel_id,
+                              why);
+
+                        let default = $name::default();
+
+                        ConfigItem {
+                            kind: $kind,
+                            value: default.default,
+                        }
+                    },
+                }
+            }
+        }
+    }
 }
 
 config! {
@@ -273,7 +353,7 @@ config! {
     PiAvailable,
     "pi.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::I64(Availability::Disabled.num()),
     "Whether the ability to use `pi` is available."
 }
 

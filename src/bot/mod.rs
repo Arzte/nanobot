@@ -14,6 +14,7 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+pub mod config;
 pub mod event_counter;
 pub mod plugins;
 pub mod uptime;
