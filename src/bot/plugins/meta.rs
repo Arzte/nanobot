@@ -917,14 +917,18 @@ Discriminator: {}
          Game: {}
       Created: {}
        Joined: {}
-        Roles: {}```"#, s_name,
+        Roles: {}"#, s_name,
                         s_game,
                         created_at,
                         &member.joined_at[..19].replace('T', " "),
                         role_list)[..]);
+
+            break;
         }
     }
     drop(state);
+
+    text.push_str("```");
 
     let _msg = req!(context.say(text));
 }
