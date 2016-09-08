@@ -797,8 +797,8 @@ config! {
     "purge.default",
     ConfigType::Int,
     Value::I64(50),
-    100,
     2,
+    100,
     "The maximum number of messages that can be purged at once."
 }
 
@@ -807,8 +807,8 @@ config! {
     "purge.maximum",
     ConfigType::Int,
     Value::I64(100),
-    100,
     2,
+    100,
     "The maximum number of messages that can be purged at once."
 }
 
@@ -817,8 +817,8 @@ config! {
     "purge.minimum",
     ConfigType::Int,
     Value::I64(2),
-    100,
     2,
+    100,
     "The maximum number of messages that can be purged at once."
 }
 

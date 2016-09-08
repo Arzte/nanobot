@@ -439,10 +439,11 @@ pub fn weather(context: Context) {
     };
     let current_time = {
         if let Some(offset) = forecast.offset {
-            let timestamp = currently.time as i64 + offset as i64;
+            println!("{:?} {:?}", currently.time, offset);
+            let timestamp = currently.time as i64 + (offset as i64 * 3600);
 
             NaiveDateTime::from_timestamp(timestamp, 0)
-                .format("%H:%M%p")
+                .format("%I:%M%p")
                 .to_string()
         } else {
             "N/A".to_owned()
