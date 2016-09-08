@@ -209,7 +209,7 @@ pub fn info(context: Context) {
         return;
     }
 
-    let key_ = context.text(0);
+    let key = context.text(0);
 
     let state = context.state.lock().unwrap();
     let s = match state.find_channel(&context.message.channel_id) {
@@ -225,7 +225,7 @@ pub fn info(context: Context) {
 
     let filter: PgRes = db.query(
         "select created_at, key, owner_id, uses from tags where server_id = $1 and key = $2",
-        &[&(s.id.0 as i64), &key_]
+        &[&(s.id.0 as i64), &key]
     );
 
     let tag = match filter {
@@ -237,7 +237,7 @@ pub fn info(context: Context) {
         },
         Err(why) => {
             warn!("[info] Err querying for '{}' in {}: {:?}",
-                  key_,
+                  key,
                   s.id,
                   why);
 
@@ -609,9 +609,9 @@ pub fn set(context: Context) {
     };
     drop(state);
 
-    let (key_, value_) = (&text[..pos], &text[pos + 2..]);
+    let (key, value) = (&text[..pos], &text[pos + 2..]);
 
-    if key_.len() > 100 {
+    if key.len() > 100 {
         let _msg = req!(context.say("Key max length is 100"));
 
         return;
@@ -623,7 +623,7 @@ pub fn set(context: Context) {
     {
         let exists: PgRes = db.query(
             "select id from tags where server_id = $1 and key = $2",
-            &[&(server_id.0 as i64), &key_]
+            &[&(server_id.0 as i64), &key]
         );
 
         match exists {
@@ -645,10 +645,10 @@ pub fn set(context: Context) {
         "insert into tags (created_at, key, owner_id, server_id, value) values ($1, $2, $3, $4, $5)",
         &[
             &(UTC::now().timestamp()),
-            &key_,
+            &key,
             &(context.message.author.id.0 as i64),
             &(server_id.0 as i64),
-            &value_
+            &value,
         ]
     );
     drop(db);
