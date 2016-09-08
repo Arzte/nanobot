@@ -67,7 +67,6 @@ Basic information such as the title, a Hummingbird link, when it aired, the scor
 
 Example:
 `;anime nichijou`"#);
-        map.insert("bigemoji", r#"Links to a larger, 112x112 version of a custom emoji."#);
         map.insert("channelinfo", r#"Gives information about a channel.
 
 This includes the following information:
@@ -112,6 +111,7 @@ A tag can only be deleted if you are the owner of the tag or you have the "Manag
 Example:
 
 `;delete some tag name`"#);
+        map.insert("emoji", r#"Links to a larger, 112x112 version of a custom emoji."#);
         map.insert("get", r#"Gets a tag by name where using the shortcut will not work.
 
 As command names will shadow tag names, this is sometimes necessary.
@@ -334,13 +334,11 @@ nano is a general-purpose, jack-of-all trades bot that can do just about
 anything you need. This ranges from metadata about servers, randomizations, mod
 tools, tagging, music, server-specific configuration, and more.
 
-Join the nano & friends server!
-https://discord.gg/MFHVwvW
-
-
 Invite nano to your server:
 https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
-"#, env!("CARGO_PKG_VERSION"), client_id)));
+
+Join the nano & friends server!
+https://discord.gg/MFHVwvW"#, env!("CARGO_PKG_VERSION"), client_id)));
 }
 
 pub fn channel_info(context: Context) {
