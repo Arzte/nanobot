@@ -48,10 +48,10 @@ pub fn define(context: Context) {
 
     definition.example.truncate(1900 - define.len());
 
-    let mut text = format!("**{}**{}\n\n", definition.word, define);
+    let mut text = format!("**{}**\n{}\n\n", definition.word, define);
 
     if DefineExample::find(location).enabled() {
-        text.push_str("Example: _{}");
+        text.push_str("Example: _");
         text.push_str(&definition.example);
         text.push('_');
     }
