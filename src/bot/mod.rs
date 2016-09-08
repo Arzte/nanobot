@@ -38,8 +38,18 @@ use discord::{
     voice,
 };
 use postgres::Connection as PgConnection;
-use self::plugins::*;
-use self::plugins::misc::Aesthetic;
+use self::plugins::{
+    admin,
+    config as config_plugin,
+    conversation,
+    meta,
+    misc,
+    music,
+    random,
+    stats,
+    tags,
+    tv,
+};
 use self::plugins::music::{MusicPlaying, MusicState};
 use std::sync::mpsc::{self, TryRecvError};
 use std::sync::{Arc, Mutex};
@@ -533,7 +543,7 @@ fn check_user(user: &DiscordUser, db: &PgConnection) {
 
 
 fn handle_message(context: Context) {
-    if !context.message.content.starts_with(';') {
+    if !context.message.content.starts_with('`') {
         debug!("[handle-message] Not a command");
 
         return;
@@ -579,22 +589,17 @@ fn handle_message(context: Context) {
 
     match cmd {
         "8ball" => random::magic_eight_ball(context),
-        "aescaps" => misc::aesthetic(context, vec![
-                                     Aesthetic::Bold,
-                                     Aesthetic::Caps,
-        ]),
-        "aestheticcaps" => misc::aesthetic(context, vec![
-                                           Aesthetic::Bold,
-                                           Aesthetic::Caps,
-        ]),
-        "aesthetic" => misc::aesthetic(context, vec![]),
-        "aes" => misc::aesthetic(context, vec![]),
+        "aescaps" => misc::aescaps(context),
+        "aestheticcaps" => misc::aestheticcaps(context),
+        "aesthetic" => misc::aesthetic(context),
+        "aes" => misc::aes(context),
         "about" => meta::about(context),
         "anime" => tv::anime(context),
-        "bigemoji" => meta::big_emoji(context),
+        "emoji" => meta::emoji(context),
         "channelinfo" => meta::channel_info(context),
         "choose" => random::choose(context),
         "coinflip" => random::coinflip(context),
+        "config" => config_plugin::base(context),
         "define" => conversation::define(context),
         "delete" => tags::delete(context),
         "events" => meta::events(context),

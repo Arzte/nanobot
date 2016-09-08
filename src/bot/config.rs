@@ -20,6 +20,57 @@ use std::default::Default;
 use std::i64;
 use ::prelude::*;
 
+pub static CONFIGS: [&'static str; 48] = [
+    "aesthetic.available",
+    "aestheticcaps.available",
+    "aes.available",
+    "aescaps.available",
+    "anime.available",
+    "channelinfo.available",
+    "choose.available",
+    "coinflip.available",
+    "coinflip.side",
+    "conversation.available",
+    "define.available",
+    "define.example",
+    "emoji.available",
+    "hello.available",
+    "lmgtfy.available",
+    "lmgtfy.results",
+    "8ball.available",
+    "manga.available",
+    "mfw.available",
+    "pi.available",
+    "pi.precision.default",
+    "pi.precision.maximum",
+    "ping.available",
+    "pixiv.automatic",
+    "pixiv.available",
+    "pixiv.info",
+    "purge.available",
+    "purge.default",
+    "purge.maximum",
+    "purge.minimum",
+    "remindme.available",
+    "roleinfo.available",
+    "roll.available",
+    "roll.custom",
+    "roll.maximum",
+    "roll.minimum",
+    "roulette.available",
+    "serverinfo.available",
+    "skip.available",
+    "skip.required",
+    "stats.available",
+    "tags.available",
+    "teams.available",
+    "userinfo.available",
+    "weather.available",
+    "weather.saving",
+    "wolfram.available",
+    "xkcd.available",
+];
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Ord, PartialOrd)]
 enum Availability {
     /// No one can use the command
@@ -47,7 +98,7 @@ impl Availability {
         }
     }
 
-    pub fn num(&self) -> i64 {
+    pub fn num(&self) -> u64 {
         match *self {
             Availability::Disabled => 0,
             Availability::Enabled => 1,
@@ -56,7 +107,7 @@ impl Availability {
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Ord, PartialOrd)]
-enum ConfigType {
+pub enum ConfigType {
     Availability,
     Int,
     String,
@@ -71,42 +122,81 @@ impl ConfigType {
             _ => None,
         }
     }
+
+    pub fn name(&self) -> &str {
+        match *self {
+            ConfigType::Availability => "Enable Switch",
+            ConfigType::Int => "Integer",
+            ConfigType::String => "String",
+        }
+    }
+
+    pub fn to_num(kind: ConfigType) -> i16 {
+        match kind {
+            ConfigType::Availability => 0,
+            ConfigType::Int => 1,
+            ConfigType::String => 2,
+        }
+    }
 }
 
-pub struct ConfigItem {
-    kind: ConfigType,
-    value: Value,
+#[derive(Clone, Debug)]
+pub struct ConfigItem<'a> {
+    pub default: Value,
+    pub description: &'a str,
+    pub key: &'a str,
+    pub kind: ConfigType,
+    pub max_value: Option<i64>,
+    pub min_value: Option<i64>,
+    pub value: Value,
+}
+
+impl<'a> ConfigItem<'a> {
+    pub fn as_i64(&self) -> Result<i64> {
+        self.value
+            .as_i64()
+            .or_else(|| self.value.as_u64().map(|v| v as i64))
+            .ok_or(Error::Decode)
+    }
+    pub fn as_u64(&self) -> Result<u64> {
+        self.value
+            .as_u64()
+            .or_else(|| self.value.as_i64().map(|v| v as u64))
+            .ok_or(Error::Decode)
+    }
+
+    pub fn disabled(&self) -> bool {
+        !self.enabled()
+    }
+
+    pub fn enabled(&self) -> bool {
+        match self.kind {
+            ConfigType::Availability => {
+                match self.value {
+                    Value::U64(1) => true,
+                    _ => false,
+                }
+            },
+            _ => false,
+        }
+    }
+
+    pub fn int(&self) -> bool {
+        self.kind == ConfigType::Int
+    }
 }
 
 macro_rules! config {
     ($name:ident, $key:expr, $kind:path, $default:expr, $desc:expr) => {
-        /// $desc
-        #[derive(Clone, Debug)]
-        pub struct $name {
-            default: Value,
-            description: String,
-            key: String,
-            max_value: Option<i64>,
-            min_value: Option<i64>,
-            kind: ConfigType,
-        }
-
-        impl Default for $name {
-            fn default() -> $name {
-                $name {
-                    default: $default,
-                    description: String::from($desc),
-                    key: String::from($key),
-                    max_value: None,
-                    min_value: None,
-                    kind: $kind,
-                }
-            }
-        }
-
-        config_impl!($name, $kind);
+        config_impl!($name, $key, $kind, $default, None, None, $desc);
     };
 
+    ($name:ident, $key:expr, $kind:path, $default:expr, $min:expr, $max:expr, $desc:expr) => {
+        config_impl!($name, $key, $kind, $default, Some($min), Some($max), $desc);
+    };
+}
+
+macro_rules! config_impl {
     ($name:ident, $key:expr, $kind:path, $default:expr, $min:expr, $max:expr, $desc:expr) => {
         /// $desc
         #[derive(Clone, Debug)]
@@ -114,9 +204,9 @@ macro_rules! config {
             default: Value,
             description: String,
             key: String,
+            kind: ConfigType,
             max_value: Option<i64>,
             min_value: Option<i64>,
-            kind: ConfigType,
         }
 
         impl Default for $name {
@@ -125,33 +215,19 @@ macro_rules! config {
                     default: $default,
                     description: String::from($desc),
                     key: String::from($key),
-                    max_value: Some($max),
-                    min_value: Some($min),
+                    max_value: $max,
+                    min_value: $min,
                     kind: $kind,
                 }
             }
         }
 
-        config_impl!($name, $kind);
-    };
-}
-
-macro_rules! config_impl {
-    ($name:ident, $kind:path) => {
         impl $name {
-            #[allow(dead_code)]
-            pub fn get(location: (ServerId, ChannelId)) -> ConfigItem {
-                let server_id = location.0;
-                let channel_id = location.1;
-
-                let db = ::DB.lock().unwrap();
-
-                let res: PgRes = db.query(
-                    "select id, channel_id, key, kind, server_id, value
-                     from configs where (channel_id = $1 and server_id = $2)
-                     or server_id = $2 order by channel_id desc limit 1",
-                    &[&(channel_id.0 as i64), &(server_id.0 as i64)]
-                );
+            fn handle<'a>(res: PgRes,
+                          location: (ServerId, Option<ChannelId>))
+                          -> ConfigItem<'a> {
+                let server = location.0;
+                let channel = location.1;
 
                 match res {
                     Ok(ref rows) if rows.len() > 0 => {
@@ -176,7 +252,12 @@ macro_rules! config_impl {
                         };
 
                         ConfigItem {
-                            kind: kind,
+                            default: $default,
+                            description: $desc,
+                            key: $key,
+                            kind: $kind,
+                            max_value: $max,
+                            min_value: $min,
                             value: v,
                         }
                     },
@@ -184,22 +265,175 @@ macro_rules! config_impl {
                         let default = $name::default();
 
                         ConfigItem {
+                            default: $default,
+                            description: $desc,
+                            key: $key,
                             kind: $kind,
+                            max_value: $max,
+                            min_value: $min,
                             value: default.default,
                         }
                     },
                     Err(why) => {
-                        warn!("[get] Err getting key for '{}/{}': {:?}",
-                              server_id,
-                              channel_id,
+                        warn!("[get] Err getting config for '{}/{:?}': {:?}",
+                              server,
+                              channel,
                               why);
 
                         let default = $name::default();
 
                         ConfigItem {
+                            default: $default,
+                            description: $desc,
+                            key: $key,
                             kind: $kind,
+                            max_value: $max,
+                            min_value: $min,
                             value: default.default,
                         }
+                    },
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn find<'a>(location: (ServerId, Option<ChannelId>)) -> ConfigItem<'a> {
+                let server = location.0;
+                let db = ::DB.lock().unwrap();
+
+                let res: PgRes = if let Some(channel) = location.1 {
+                    db.query(
+                        "select id, channel_id, key, kind, server_id, value
+                         from configs where (channel_id = $1 and server_id = $2
+                         and key = $3) or (channel_id is null and server_id = $2
+                         and key = $3) order by channel_id desc",
+                        &[&(channel.0 as i64), &(server.0 as i64), &$key]
+                    )
+                } else {
+                    db.query(
+                        "select id, channel_id, key, kind, server_id, value
+                         from configs where channel_id is null and server_id = $1
+                         and key = $2",
+                        &[&(server.0 as i64), &$key])
+                };
+
+                Self::handle(res, location)
+            }
+
+            #[allow(dead_code)]
+            pub fn get<'a>(location: (ServerId, Option<ChannelId>)) -> ConfigItem<'a> {
+                let server = location.0;
+                let db = ::DB.lock().unwrap();
+
+                let res: PgRes = if let Some(channel) = location.1 {
+                    db.query(
+                        "select id, channel_id, key, kind, server_id, value
+                         from configs where channel_id = $1 and server_id = $2
+                         and key = $3",
+                        &[&(channel.0 as i64), &(server.0 as i64), &$key]
+                    )
+                } else {
+                    db.query(
+                        "select id, channel_id, key, kind, server_id, value
+                         from configs where channel_id is null and server_id = $1
+                         and key = $2",
+                        &[&(server.0 as i64), &$key])
+                };
+
+                Self::handle(res, location)
+            }
+
+            #[allow(dead_code)]
+            pub fn set(location: (ServerId, Option<ChannelId>),
+                       value: Value)
+                       -> Result<()> {
+                let sql_value: String = match value {
+                    Value::I64(v) => v.to_string(),
+                    Value::U64(v) => v.to_string(),
+                    Value::String(v) => v,
+                    _ => return Err(Error::Decode),
+                };
+
+                let db = ::DB.lock().unwrap();
+
+                let updated = if let Some(channel) = location.1 {
+                    db.execute(
+                        r#"update configs set value = $1 where key = $2
+                         and server_id = $3 and channel_id = $4"#, &[
+                            &sql_value,
+                            &$key,
+                            &((location.0).0 as i64),
+                            &(channel.0 as i64),
+                        ])
+                } else {
+                    db.execute(
+                        r#"update configs set value = $1 where key = $2
+                           and server_id = $3 and channel_id is null"#, &[
+                            &sql_value,
+                            &$key,
+                            &((location.0).0 as i64),
+                        ])
+                };
+
+                match updated {
+                    Ok(1) => Ok(()),
+                    Ok(0) => {
+                        let insert = if let Some(channel) = location.1 {
+                            db.execute(
+                                r#"insert into configs
+                                 (channel_id, key, kind, server_id, value)
+                                 values
+                                 ($1, $2, $3, $4, $5)"#,
+                                &[
+                                    &(channel.0 as i64),
+                                    &$key,
+                                    &(ConfigType::to_num($kind)),
+                                    &((location.0).0 as i64),
+                                    &sql_value,
+                                ])
+                        } else {
+                            db.execute(
+                                r#"insert into configs
+                                 (key, kind, server_id, value)
+                                 values
+                                 ($1, $2, $3, $4)"#,
+                                &[
+                                    &$key,
+                                    &(ConfigType::to_num($kind)),
+                                    &((location.0).0 as i64),
+                                    &sql_value,
+                                ])
+                        };
+
+                        match insert {
+                            Ok(_) => Ok(()),
+                            Err(why) => {
+                                warn!("[save] Err saving new config: [{}/{:?}/{:?}]: {:?}",
+                                      location.0,
+                                      location.1,
+                                      sql_value,
+                                      why);
+
+                                Err(Error::SqlExecution)
+                            },
+                        }
+                    },
+                    Ok(amount) => {
+                        warn!("[save] Updated many configs: [{}/{:?}/{:?}]: {}",
+                              location.0,
+                              location.1,
+                              sql_value,
+                              amount);
+
+                        Ok(())
+                    },
+                    Err(why) => {
+                        warn!("[save] Err updating config: [{}/{:?}/{:?}]: {:?}",
+                              location.0,
+                              location.1,
+                              sql_value,
+                              why);
+
+                        Err(Error::SqlExecution)
                     },
                 }
             }
@@ -207,19 +441,132 @@ macro_rules! config_impl {
     }
 }
 
+pub fn get_config<'a>(name: &str,
+                      location: (ServerId, Option<ChannelId>))
+                      -> Option<ConfigItem<'a>> {
+    match name {
+        "aesthetic.available" => Some(AestheticAvailable::get(location)),
+        "aestheticcaps.available" => Some(AestheticCapsAvailable::get(location)),
+        "aes.available" => Some(AesAvailable::get(location)),
+        "aescaps.available" => Some(AesCapsAvailable::get(location)),
+        "anime.available" => Some(AnimeAvailable::get(location)),
+        "channelinfo.available" => Some(ChannelInfoAvailable::get(location)),
+        "choose.available" => Some(ChooseAvailable::get(location)),
+        "coinflip.available" => Some(CoinflipAvailable::get(location)),
+        "coinflip.side" => Some(CoinflipSide::get(location)),
+        "conversation.available" => Some(ConversationAvailable::get(location)),
+        "define.available" => Some(DefineAvailable::get(location)),
+        "define.example" => Some(DefineExample::get(location)),
+        "emoji.available" => Some(EmojiAvailable::get(location)),
+        "hello.available" => Some(HelloAvailable::get(location)),
+        "lmgtfy.available" => Some(LmgtfyAvailable::get(location)),
+        "lmgtfy.results" => Some(LmgtfyResults::get(location)),
+        "8ball.available" => Some(MagicEightBallAvailable::get(location)),
+        "manga.available" => Some(MangaAvailable::get(location)),
+        "mfw.available" => Some(MfwAvailable::get(location)),
+        "pi.available" => Some(PiAvailable::get(location)),
+        "pi.precision.default" => Some(PiPrecisionDefault::get(location)),
+        "pi.precision.maximum" => Some(PiPrecisionMaximum::get(location)),
+        "ping.available" => Some(PingAvailable::get(location)),
+        "pixiv.automatic" => Some(PixivAutomatic::get(location)),
+        "pixiv.available" => Some(PixivAvailable::get(location)),
+        "pixiv.info" => Some(PixivInfo::get(location)),
+        "purge.available" => Some(PurgeAvailable::get(location)),
+        "purge.default" => Some(PurgeDefault::get(location)),
+        "purge.maximum" => Some(PurgeMaximum::get(location)),
+        "purge.minimum" => Some(PurgeMinimum::get(location)),
+        "remindme.available" => Some(RemindMeAvailable::get(location)),
+        "roleinfo.available" => Some(RoleInfoAvailable::get(location)),
+        "roll.available" => Some(RollAvailable::get(location)),
+        "roll.custom" => Some(RollCustom::get(location)),
+        "roll.maximum" => Some(RollMaximum::get(location)),
+        "roll.minimum" => Some(RollMinimum::get(location)),
+        "roulette.available" => Some(RouletteAvailable::get(location)),
+        "serverinfo.available" => Some(ServerInfoAvailable::get(location)),
+        "skip.available" => Some(SkipAvailable::get(location)),
+        "skip.required" => Some(SkipRequired::get(location)),
+        "stats.available" => Some(StatsAvailable::get(location)),
+        "tags.available" => Some(TagsAvailable::get(location)),
+        "teams.available" => Some(TeamsAvailable::get(location)),
+        "userinfo.available" => Some(UserInfoAvailable::get(location)),
+        "weather.available" => Some(WeatherAvailable::get(location)),
+        "weather.saving" => Some(WeatherSaving::get(location)),
+        "wolfram.available" => Some(WolframAvailable::get(location)),
+        "xkcd.available" => Some(XkcdAvailable::get(location)),
+        _ => None,
+    }
+}
+
+pub fn set_config(name: &str,
+                  location: (ServerId, Option<ChannelId>),
+                  value: Value)
+                  -> Option<Result<()>> {
+    match name {
+        "aesthetic.available" => Some(AestheticAvailable::set(location, value)),
+        "aestheticcaps.available" => Some(AestheticCapsAvailable::set(location, value)),
+        "aes.available" => Some(AesAvailable::set(location, value)),
+        "aescaps.available" => Some(AesCapsAvailable::set(location, value)),
+        "anime.available" => Some(AnimeAvailable::set(location, value)),
+        "channelinfo.available" => Some(ChannelInfoAvailable::set(location, value)),
+        "choose.available" => Some(ChooseAvailable::set(location, value)),
+        "coinflip.available" => Some(CoinflipAvailable::set(location, value)),
+        "coinflip.side" => Some(CoinflipSide::set(location, value)),
+        "conversation.available" => Some(ConversationAvailable::set(location, value)),
+        "define.available" => Some(DefineAvailable::set(location, value)),
+        "define.example" => Some(DefineExample::set(location, value)),
+        "emoji.available" => Some(EmojiAvailable::set(location, value)),
+        "hello.available" => Some(HelloAvailable::set(location, value)),
+        "lmgtfy.available" => Some(LmgtfyAvailable::set(location, value)),
+        "lmgtfy.results" => Some(LmgtfyResults::set(location, value)),
+        "8ball.available" => Some(MagicEightBallAvailable::set(location, value)),
+        "manga.available" => Some(MangaAvailable::set(location, value)),
+        "mfw.available" => Some(MfwAvailable::set(location, value)),
+        "pi.available" => Some(PiAvailable::set(location, value)),
+        "pi.precision.default" => Some(PiPrecisionDefault::set(location, value)),
+        "pi.precision.maximum" => Some(PiPrecisionMaximum::set(location, value)),
+        "ping.available" => Some(PingAvailable::set(location, value)),
+        "pixiv.automatic" => Some(PixivAutomatic::set(location, value)),
+        "pixiv.available" => Some(PixivAvailable::set(location, value)),
+        "pixiv.info" => Some(PixivInfo::set(location, value)),
+        "purge.available" => Some(PurgeAvailable::set(location, value)),
+        "purge.default" => Some(PurgeDefault::set(location, value)),
+        "purge.maximum" => Some(PurgeMaximum::set(location, value)),
+        "purge.minimum" => Some(PurgeMinimum::set(location, value)),
+        "remindme.available" => Some(RemindMeAvailable::set(location, value)),
+        "roleinfo.available" => Some(RoleInfoAvailable::set(location, value)),
+        "roll.available" => Some(RollAvailable::set(location, value)),
+        "roll.custom" => Some(RollCustom::set(location, value)),
+        "roll.maximum" => Some(RollMaximum::set(location, value)),
+        "roll.minimum" => Some(RollMinimum::set(location, value)),
+        "roulette.available" => Some(RouletteAvailable::set(location, value)),
+        "serverinfo.available" => Some(ServerInfoAvailable::set(location, value)),
+        "skip.available" => Some(SkipAvailable::set(location, value)),
+        "skip.required" => Some(SkipRequired::set(location, value)),
+        "stats.available" => Some(StatsAvailable::set(location, value)),
+        "tags.available" => Some(TagsAvailable::set(location, value)),
+        "teams.available" => Some(TeamsAvailable::set(location, value)),
+        "userinfo.available" => Some(UserInfoAvailable::set(location, value)),
+        "weather.available" => Some(WeatherAvailable::set(location, value)),
+        "weather.saving" => Some(WeatherSaving::set(location, value)),
+        "wolfram.available" => Some(WolframAvailable::set(location, value)),
+        "xkcd.available" => Some(XkcdAvailable::set(location, value)),
+        _ => None,
+    }
+}
+
 config! {
     AestheticAvailable,
     "aesthetic.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `aesthetic` is available."
 }
 
 config! {
     AestheticCapsAvailable,
-    "aesthetic.available",
+    "aestheticcaps.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `aesthetic` is available."
 }
 
@@ -227,7 +574,7 @@ config! {
     AesAvailable,
     "aes.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `aes` is available."
 }
 
@@ -235,7 +582,7 @@ config! {
     AesCapsAvailable,
     "aescaps.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `aescaps` is available."
 }
 
@@ -243,7 +590,7 @@ config! {
     AnimeAvailable,
     "anime.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `anime` is available."
 }
 
@@ -251,15 +598,23 @@ config! {
     ChannelInfoAvailable,
     "channelinfo.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `channelinfo` is available."
 }
 
 config! {
-    CoinflipAvailableAvailable,
+    ChooseAvailable,
+    "choose.available",
+    ConfigType::Availability,
+    Value::U64(Availability::Enabled.num()),
+    "Whether the ability to use `choose` is available."
+}
+
+config! {
+    CoinflipAvailable,
     "coinflip.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `coinflip` is available."
 }
 
@@ -267,7 +622,7 @@ config! {
     CoinflipSide,
     "coinflip.side",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the coin can land on its side."
 }
 
@@ -275,7 +630,7 @@ config! {
     ConversationAvailable,
     "conversation.available",
     ConfigType::Availability,
-    Value::I64(Availability::Disabled.num()),
+    Value::U64(Availability::Disabled.num()),
     "Whether the ability to converse with nano is available.
 
     The command `q` is a command to converse with an AI. This allows users to
@@ -287,7 +642,7 @@ config! {
     DefineAvailable,
     "define.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `define` is available."
 }
 
@@ -295,15 +650,23 @@ config! {
     DefineExample,
     "define.example",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether to display an example with the definition."
+}
+
+config! {
+    EmojiAvailable,
+    "emoji.available",
+    ConfigType::Availability,
+    Value::U64(Availability::Enabled.num()),
+    "Whether the ability to use `emoji` is available."
 }
 
 config! {
     HelloAvailable,
     "hello.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `hello` is available."
 }
 
@@ -311,7 +674,7 @@ config! {
     LmgtfyAvailable,
     "lmgtfy.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `lmgtfy` is available."
 }
 
@@ -329,7 +692,7 @@ config! {
     MagicEightBallAvailable,
     "8ball.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `8ball` is available."
 }
 
@@ -337,7 +700,7 @@ config! {
     MangaAvailable,
     "manga.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `manga` is available."
 }
 
@@ -345,7 +708,7 @@ config! {
     MfwAvailable,
     "mfw.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `mfw` is available."
 }
 
@@ -353,7 +716,7 @@ config! {
     PiAvailable,
     "pi.available",
     ConfigType::Availability,
-    Value::I64(Availability::Disabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `pi` is available."
 }
 
@@ -383,7 +746,7 @@ config! {
     PingAvailable,
     "ping.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `ping` is available."
 }
 
@@ -391,7 +754,7 @@ config! {
     PixivAutomatic,
     "pixiv.automatic",
     ConfigType::Availability,
-    Value::I64(Availability::Disabled.num()),
+    Value::U64(Availability::Disabled.num()),
     "Whether to automatically embed an image when a pixiv link is seen.
 
     This will automatically retrieve the pixiv image whenever a pixiv link is
@@ -403,7 +766,7 @@ config! {
     PixivAvailable,
     "pixiv.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `pixiv` is available."
 }
 
@@ -411,7 +774,7 @@ config! {
     PixivInfo,
     "pixiv.info",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether to embed author information at the bottom of the picture.
 
     Enabling this will give a white bar at the bottom of the image with a URL to
@@ -419,18 +782,51 @@ config! {
 }
 
 config! {
-    RandomAvailable,
-    "random.available",
+    PurgeAvailable,
+    "purge.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
-    "Whether the ability to use `random` is available."
+    Value::U64(Availability::Enabled.num()),
+    "Whether the ability to use `purge` is available.
+
+    This is only available to those with the 'Administrator' and/or
+    'Manage Server' permissions."
+}
+
+config! {
+    PurgeDefault,
+    "purge.default",
+    ConfigType::Int,
+    Value::I64(50),
+    100,
+    2,
+    "The maximum number of messages that can be purged at once."
+}
+
+config! {
+    PurgeMaximum,
+    "purge.maximum",
+    ConfigType::Int,
+    Value::I64(100),
+    100,
+    2,
+    "The maximum number of messages that can be purged at once."
+}
+
+config! {
+    PurgeMinimum,
+    "purge.minimum",
+    ConfigType::Int,
+    Value::I64(2),
+    100,
+    2,
+    "The maximum number of messages that can be purged at once."
 }
 
 config! {
     RemindMeAvailable,
     "remindme.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `remindme` and `remind` are available."
 }
 
@@ -438,15 +834,15 @@ config! {
     RoleInfoAvailable,
     "roleinfo.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `roleinfo` is available."
 }
 
 config! {
     RollAvailable,
-    "rol..available",
+    "roll.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `roll` is available."
 }
 
@@ -454,15 +850,15 @@ config! {
     RollCustom,
     "roll.custom",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether users can give custom numbers to role between.
 
     Otherwise, a predetermined set of numbers will be rolled."
 }
 
 config! {
-    RollMax,
-    "roll.max",
+    RollMaximum,
+    "roll.maximum",
     ConfigType::Int,
     Value::I64(i64::MAX),
     i64::MIN + 1,
@@ -481,10 +877,18 @@ config! {
 }
 
 config! {
+    RouletteAvailable,
+    "roulette.available",
+    ConfigType::Availability,
+    Value::U64(Availability::Enabled.num()),
+    "Whether the ability to use `roulette` is available."
+}
+
+config! {
     ServerInfoAvailable,
     "serverinfo.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `serverinfo` is available."
 }
 
@@ -492,7 +896,7 @@ config! {
     SkipAvailable,
     "skip.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `skip` is available."
 }
 
@@ -510,7 +914,7 @@ config! {
     StatsAvailable,
     "stats.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `stats` is available."
 }
 
@@ -518,7 +922,7 @@ config! {
     TagsAvailable,
     "tags.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use the tagging system is available."
 }
 
@@ -526,7 +930,7 @@ config! {
     TeamsAvailable,
     "teams.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `teams` is available."
 }
 
@@ -534,7 +938,7 @@ config! {
     UserInfoAvailable,
     "userinfo.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `userinfo` is available."
 }
 
@@ -542,7 +946,7 @@ config! {
     WeatherAvailable,
     "weather.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `weather` is available."
 }
 
@@ -550,7 +954,7 @@ config! {
     WeatherSaving,
     "weather.saving",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether users can save their location to this server.
 
     This will allow users to easily retrieve their weather via just `weather`."
@@ -560,7 +964,7 @@ config! {
     WolframAvailable,
     "wolfram.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `wolfram` is available."
 }
 
@@ -578,6 +982,6 @@ config! {
     XkcdAvailable,
     "xkcd.available",
     ConfigType::Availability,
-    Value::I64(Availability::Enabled.num()),
+    Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `xkcd` is available."
 }

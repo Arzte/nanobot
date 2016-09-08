@@ -120,12 +120,12 @@ static AESTHETIC_CHARS: [(char, &'static str); 58] = [
 ];
 
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Aesthetic {
+enum Aesthetic {
     Bold,
     Caps,
 }
 
-pub fn aesthetic(context: Context, modifiers: Vec<Aesthetic>) {
+fn aestheticize(context: Context, modifiers: Vec<Aesthetic>) {
     let mut text = context.text(0);
 
     if text.is_empty() {
@@ -154,7 +154,43 @@ pub fn aesthetic(context: Context, modifiers: Vec<Aesthetic>) {
     let _msg = req!(context.say(text));
 }
 
+pub fn aescaps(context: Context) {
+    if AesCapsAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
+    aestheticize(context, vec![Aesthetic::Bold, Aesthetic::Caps])
+}
+
+pub fn aestheticcaps(context: Context) {
+    if AestheticCapsAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
+    aestheticize(context, vec![Aesthetic::Bold, Aesthetic::Caps])
+}
+
+pub fn aesthetic(context: Context) {
+    if AestheticAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
+    aestheticize(context, vec![])
+}
+
+pub fn aes(context: Context) {
+    if AesAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
+    aestheticize(context, vec![])
+}
+
 pub fn hello(context: Context) {
+    if HelloAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let greetings = vec![
         format!("Hello {}", context.message.author.name),
         format!("Hey {}!", context.message.author.name),
@@ -172,6 +208,10 @@ pub fn hello(context: Context) {
 }
 
 pub fn mfw(context: Context) {
+    if MfwAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let _msg = match thread_rng().choose(&EMOJIS) {
         Some(emoji) => req!(context.say(&format!(":{}:", emoji)[..])),
         None => req!(context.reply("No emoji found")),
@@ -179,7 +219,11 @@ pub fn mfw(context: Context) {
 }
 
 pub fn pi(context: Context) {
-    let config = PiAvailable::get(req!(get_location(&context)));
+    let location = req!(get_location(&context));
+
+    if PiAvailable::find(location).disabled() {
+        return;
+    }
 
     let mut pi = r#"
         1415926535897932384626433832795028841971693993751058209749445923078
@@ -199,16 +243,28 @@ pub fn pi(context: Context) {
         75937519577818577805321712268066130019278766111959092164201989
         "#.replace(' ', "").replace("\n", "");
 
-    let length = if let Ok(v) = context.arg(1).as_u64() {
-        v as usize
-    } else {
-        let _msg = req!(context.say("Requires a positive whole number"));
+    let length = {
+        let arg = context.arg(1);
 
-        return;
+        if let Ok(v) = arg.as_u64() {
+            v as usize
+        } else if arg.exists() {
+
+            let _msg = req!(context.say("Requires a positive whole number"));
+
+            return;
+        } else {
+            let default = PiPrecisionDefault::get(location);
+
+            req!(default.as_i64()) as usize
+        }
     };
 
-    if length > 1000 {
-        let _msg = req!(context.say("Maximum 1000 digits"));
+    let max = PiPrecisionMaximum::get(location);
+    let max = req!(max.as_i64()) as usize;
+
+    if length > max {
+        let _msg = req!(context.say(format!("Maximum {} digits", max)));
 
         return;
     }
@@ -236,6 +292,10 @@ Current Connection: {} UTC```"#, boot, connection)
 }
 
 pub fn weather(context: Context) {
+    if WeatherAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let first_arg = context.arg(1);
 
     let save = if let Ok(arg) = first_arg.as_str() {

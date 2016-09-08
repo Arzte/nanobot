@@ -343,59 +343,11 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
 "#, env!("CARGO_PKG_VERSION"), client_id)));
 }
 
-pub fn big_emoji(context: Context) {
-    let arg_found = context.arg(1);
-
-    let arg = match arg_found.as_str() {
-        Ok(arg) => arg,
-        Err(_why) => {
-            let _msg = req!(context.say("Must provide an emoji"));
-
-            return;
-        },
-    };
-    // A fast way to check this. This will technically have the ability to
-    // provide a false error message (such as when someone args "test").
-    if !arg.starts_with('<') {
-        let _msg = req!(context.say("Can only process custom emojis"));
-
+pub fn channel_info(context: Context) {
+    if ChannelInfoAvailable::find(req!(get_location(&context))).disabled() {
         return;
     }
 
-    let error = "Error processing emoji";
-
-    let re = match Regex::new(r"<:(.*):([0-9]+)>") {
-        Ok(re) => re,
-        Err(_why) => {
-            let _msg = req!(context.say(error));
-
-            return;
-        },
-    };
-    let caps = match re.captures(arg) {
-        Some(re) => re,
-        None => {
-            let _msg = req!(context.say(error));
-
-            return;
-        },
-    };
-
-    let id = match caps.at(2) {
-        Some(id) => id,
-        None => {
-            let _msg = req!(context.say(error));
-
-            return;
-        },
-    };
-
-    let text = format!("https://cdn.discordapp.com/emojis/{}.png", id);
-
-    let _msg = req!(context.say(text));
-}
-
-pub fn channel_info(context: Context) {
     let channel_mentions = context.channel_mentions();
 
     let id = if let Some(channel) = channel_mentions.get(0) {
@@ -483,6 +435,62 @@ channel.user_limit.unwrap_or(0)));
     }
 
     text.push_str("```");
+
+    let _msg = req!(context.say(text));
+}
+
+pub fn emoji(context: Context) {
+    if EmojiAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
+    let arg_found = context.arg(1);
+
+    let arg = match arg_found.as_str() {
+        Ok(arg) => arg,
+        Err(_why) => {
+            let _msg = req!(context.say("Must provide an emoji"));
+
+            return;
+        },
+    };
+    // A fast way to check this. This will technically have the ability to
+    // provide a false error message (such as when someone args "test").
+    if !arg.starts_with('<') {
+        let _msg = req!(context.say("Can only process custom emojis"));
+
+        return;
+    }
+
+    let error = "Error processing emoji";
+
+    let re = match Regex::new(r"<:(.*):([0-9]+)>") {
+        Ok(re) => re,
+        Err(_why) => {
+            let _msg = req!(context.say(error));
+
+            return;
+        },
+    };
+    let caps = match re.captures(arg) {
+        Some(re) => re,
+        None => {
+            let _msg = req!(context.say(error));
+
+            return;
+        },
+    };
+
+    let id = match caps.at(2) {
+        Some(id) => id,
+        None => {
+            let _msg = req!(context.say(error));
+
+            return;
+        },
+    };
+
+    let text = format!("https://cdn.discordapp.com/emojis/{}.png", id);
 
     let _msg = req!(context.say(text));
 }
@@ -580,6 +588,10 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=32225
 }
 
 pub fn ping(context: Context) {
+    if PingAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let start = UTC::now();
     let msg = req!(context.say("Ping!"));
     let end = UTC::now();
@@ -597,6 +609,10 @@ pub fn ping(context: Context) {
 }
 
 pub fn role_info(context: Context) {
+    if RoleInfoAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let name = context.text(0);
 
     let text = {
@@ -652,6 +668,10 @@ Mentionable: {}
 }
 
 pub fn server_info(context: Context) {
+    if ServerInfoAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let state = context.state.lock().unwrap();
     let server = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server,
@@ -665,8 +685,9 @@ pub fn server_info(context: Context) {
     let owner_info = server.members
         .iter()
         .find(|member| member.user.id == server.owner_id)
-        .map(|owner| format!("{}#{}", owner.user.name, owner.user.discriminator))
-        .unwrap_or(String::from("Unknown"));
+        .map_or("Unknown".to_owned(), |owner| {
+            format!("{}#{}", owner.user.name, owner.user.discriminator)
+        });
 
     let mut channels = [0, 0];
 
@@ -738,7 +759,12 @@ pub fn set_status(context: Context) {
     conn.set_game_name(new_status);
 }
 
+#[allow(cyclomatic_complexity)]
 pub fn user_info(context: Context) {
+    if UserInfoAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let arg = context.arg(1);
 
     let user = if let Some(user) = context.message.mentions.get(0) {

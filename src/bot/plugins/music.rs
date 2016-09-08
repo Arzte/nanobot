@@ -377,6 +377,12 @@ request.format_duration()));
 }
 
 pub fn skip(context: Context) {
+    let location = req!(get_location(&context));
+
+    if SkipAvailable::find(location).disabled() {
+        return;
+    }
+
     let state = context.state.lock().unwrap();
     let (server_id, is_admin) = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => {
@@ -401,6 +407,8 @@ pub fn skip(context: Context) {
     let err_no = "No song is currently playing";
     let err_already = "You have already voted to skip this song";
 
+    let skip_votes_required = req!(SkipRequired::find(location).as_u64());
+
     let vote = {
         let mut state = context.music_state.lock().unwrap();
 
@@ -412,7 +420,7 @@ pub fn skip(context: Context) {
                     } else if !current.skip_votes.contains(&context.message.author.id) {
                         current.skip_votes.push(context.message.author.id);
 
-                        if current.skip_votes.len() >= current.skip_votes_required as usize {
+                        if current.skip_votes.len() >= skip_votes_required as usize {
                             SkipVote::Passed
                         } else {
                             SkipVote::Voted
@@ -462,7 +470,7 @@ pub fn skip(context: Context) {
             let current = match state.status.get(&server_id) {
                 Some(current_opt) => {
                     if let Some(current) = current_opt.as_ref() {
-                        (current.skip_votes.len(), current.skip_votes_required)
+                        (current.skip_votes.len(), skip_votes_required)
                     } else {
                         let _msg = req!(context.say(err_no));
 

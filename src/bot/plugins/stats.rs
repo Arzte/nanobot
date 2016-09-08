@@ -18,6 +18,10 @@ use discord::ChannelRef;
 use ::prelude::*;
 
 pub fn stats(context: Context) {
+    if StatsAvailable::find(req!(get_location(&context))).enabled() {
+        return;
+    }
+
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.id,

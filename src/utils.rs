@@ -37,13 +37,27 @@ macro_rules! reqf {
     }
 }
 
-pub fn get_location(context: &Context) -> Result<(ServerId, ChannelId)> {
+pub fn get_location(context: &Context) -> Result<(ServerId, Option<ChannelId>)> {
     let state = context.state.lock().unwrap();
 
     match state.find_channel(&context.message.channel_id) {
-        Some(ChannelRef::Public(server, channel)) => Ok((server.id, channel.id)),
+        Some(ChannelRef::Public(server, channel)) => Ok((server.id, Some(channel.id))),
         _ => Err(Error::Decode),
     }
+}
+
+#[allow(dead_code)]
+pub fn get_server(context: &Context) -> Option<ServerId> {
+    let state = context.state.lock().unwrap();
+
+    state.servers()
+        .iter()
+        .find(|server| {
+            server.channels
+                .iter()
+                .any(|channel| channel.id.0 == context.message.channel_id.0)
+        })
+        .map(|server| server.id)
 }
 
 pub fn decode_array<T, F: Fn(Value) -> Result<T>>(value: Value,

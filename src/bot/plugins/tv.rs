@@ -18,6 +18,10 @@ use hummingbird::{self, ShowType};
 use ::prelude::*;
 
 pub fn anime(context: Context) {
+    if AnimeAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let text = context.text(0);
 
     if text.is_empty() {
@@ -51,12 +55,10 @@ pub fn anime(context: Context) {
         .unwrap_or(unsafe { animes.get_unchecked(0) });
     let started = anime.started_airing
         .as_ref()
-        .map(|v| &v[..])
-        .unwrap_or("N/A");
+        .map_or("N/A", |v| &v[..]);
     let finished = anime.finished_airing
         .as_ref()
-        .map(|v| &v[..])
-        .unwrap_or("N/A");
+        .map_or("N/A", |v| &v[..]);
 
     let info = format!(r#"**{}**
 Hummingbird: {}

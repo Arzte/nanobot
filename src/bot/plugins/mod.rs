@@ -15,6 +15,7 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 pub mod admin;
+pub mod config;
 pub mod conversation;
 pub mod meta;
 pub mod misc;

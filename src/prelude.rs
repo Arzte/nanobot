@@ -19,7 +19,7 @@ pub use postgres::types::FromSql;
 pub use postgres::rows::Rows;
 pub use ::bot::config::*;
 pub use ::ext::commands::Context;
-pub use ::utils::get_location;
+pub use ::utils::{get_location, get_server};
 
 use postgres::types::ToSql;
 use postgres::{Connection as PgConnection, Result as PgResult};

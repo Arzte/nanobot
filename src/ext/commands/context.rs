@@ -166,6 +166,13 @@ impl<'a> ContextArg<'a> {
         self.check(self.0)
     }
 
+    #[allow(dead_code)]
+    pub fn as_i64(&self) -> Result<i64> {
+        self.0
+            .ok_or(Error::Decode)
+            .and_then(|v| Ok(try!(v.parse::<i64>())))
+    }
+
     pub fn as_u64(&self) -> Result<u64> {
         self.0
             .ok_or(Error::Decode)

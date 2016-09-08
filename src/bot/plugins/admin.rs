@@ -19,12 +19,6 @@ use discord::{ChannelRef, GetMessages};
 use ::prelude::*;
 
 pub fn purge(context: Context) {
-    if !context.arg(1).exists() {
-        let _ = req!(context.say("Must provide message count to delete"));
-
-        return;
-    }
-
     // Check that the person has the 'MANAGE_MESSAGES' permission
     let state = context.state.lock().unwrap();
     let member_perms = match state.find_channel(&context.message.channel_id) {
@@ -46,16 +40,40 @@ pub fn purge(context: Context) {
         return;
     }
 
-    let amount = req!(context.arg(1).as_u64());
+    let location = req!(get_location(&context));
 
-    if amount > 100 {
-        let _msg = req!(context.say("Can only purge 100 messages"));
+    let amount = context.arg(1)
+        .as_u64()
+        .ok()
+        .or_else(|| PurgeDefault::find(location)
+            .as_u64()
+            .ok());
+
+    let amount = match amount {
+        Some(amount) => amount,
+        None => {
+            let _msg = req!(context.say("No amount given"));
+
+            return;
+        },
+    };
+
+    if PurgeAvailable::find(location).disabled() {
+        return;
+    }
+
+    let max = req!(PurgeMaximum::find(location).as_u64());
+
+    if amount > max {
+        let _msg = req!(context.say(format!("Can only purge {} messages", max)));
 
         return;
     }
 
-    if amount < 2 {
-        let _msg = req!(context.say("Must purge at least 2 messages"));
+    let min = req!(PurgeMinimum::find(location).as_u64());
+
+    if amount < min {
+        let _msg = req!(context.say(format!("Must purge at least {} messages", min)));
 
         return;
     }

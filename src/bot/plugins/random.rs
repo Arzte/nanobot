@@ -18,6 +18,10 @@ use rand::{Rng, thread_rng};
 use ::prelude::*;
 
 pub fn choose(context: Context) {
+    if ChooseAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let text = context.text(0);
 
     let mut choices: Vec<&str> = text.split(", ").collect();
@@ -33,6 +37,10 @@ pub fn choose(context: Context) {
 }
 
 pub fn coinflip(context: Context) {
+    if CoinflipAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let num = thread_rng().gen::<u8>();
 
     let _msg = req!(context.say(if num < 127 {
@@ -45,6 +53,10 @@ pub fn coinflip(context: Context) {
 }
 
 pub fn magic_eight_ball(context: Context) {
+    if MagicEightBallAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let answers = [
         // positive
         "It is certain",
@@ -72,6 +84,10 @@ pub fn magic_eight_ball(context: Context) {
 }
 
 pub fn roll(context: Context) {
+    if RollAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let arg1 = context.arg(1);
     let arg2 = context.arg(2);
 
@@ -118,6 +134,10 @@ pub fn roll(context: Context) {
 }
 
 pub fn roulette(context: Context) {
+    if RouletteAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let _msg = req!(context.say(if thread_rng().gen_range(0, 6) == 0 {
         format!("BANG! {} was shot", context.message.author.mention())
     } else {
@@ -126,6 +146,10 @@ pub fn roulette(context: Context) {
 }
 
 pub fn teams(context: Context) {
+    if TeamsAvailable::find(req!(get_location(&context))).disabled() {
+        return;
+    }
+
     let team_count = match context.arg(1).as_u64() {
         Ok(team_count) => team_count,
         Err(_why) => {

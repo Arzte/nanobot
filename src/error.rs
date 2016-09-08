@@ -28,6 +28,7 @@ pub enum Error {
     Discord(DiscordError),
     Hyper(HyperError),
     Json(JsonError),
+    SqlExecution,
     YoutubeDL(String),
 }
 
