@@ -389,7 +389,7 @@ pub fn skip(context: Context) {
             let is_admin = server.permissions_for(
                 context.message.channel_id,
                 context.message.author.id
-                ).contains(permissions::ADMINISTRATOR);
+            ).contains(permissions::ADMINISTRATOR);
 
             (server.id, is_admin)
         },
@@ -403,6 +403,33 @@ pub fn skip(context: Context) {
         },
     };
     drop(state);
+
+    if is_admin {
+        let _msg = req!(context.say("Admin skipped song"));
+
+        let mut state = context.music_state.lock().unwrap();
+
+        for (_k, v) in &mut state.song_completion {
+            let removal_index = v.iter()
+                .position(|sid| *sid == server_id);
+
+            if let Some(removal_index) = removal_index {
+                v.remove(removal_index);
+
+                break;
+            }
+        }
+
+        state.song_completion.insert(0, vec![server_id]);
+
+        {
+            let mut conn = context.conn.lock().unwrap();
+            let voice = conn.voice(Some(server_id));
+            voice.stop();
+        }
+
+        return;
+    }
 
     let err_no = "No song is currently playing";
     let err_already = "You have already voted to skip this song";
@@ -527,6 +554,12 @@ pub fn skip(context: Context) {
         }
 
         state.song_completion.insert(0, vec![server_id]);
+
+        {
+            let mut conn = context.conn.lock().unwrap();
+            let voice = conn.voice(Some(server_id));
+            voice.stop();
+        }
     }
 }
 
@@ -565,9 +598,9 @@ pub fn status(context: Context) {
 
         format!("Playing **{}** [{}/{}] [-{}]",
                 current.req.response.data.title,
-                ran,
+                get_duration(ran as u64),
                 current.req.format_duration(),
-                remaining)
+                get_duration(remaining as u64))
     };
 
     req!(context.say(text));

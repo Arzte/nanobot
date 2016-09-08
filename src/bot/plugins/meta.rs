@@ -496,6 +496,29 @@ pub fn emoji(context: Context) {
 }
 
 pub fn events(context: Context) {
+    let author_var = if let Ok(var) = env::var("AUTHOR_ID") {
+        var
+    } else {
+        let _msg = req!(context.say("Error getting events"));
+        error!("[env] AUTHOR_ID env var not set");
+
+        return;
+    };
+
+    let author_id = if let Ok(id) = author_var.parse::<u64>() {
+        id
+    } else {
+        let _msg = req!(context.reply("Error getting events"));
+
+        return;
+    };
+
+    if context.message.author.id.0 != author_id {
+        let _msg = req!(context.reply("Only the bot owner can set status"));
+
+        return;
+    }
+
     let mut text = String::from("Events seen:\n");
 
     let arg_found = context.arg(1);
