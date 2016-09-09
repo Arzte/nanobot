@@ -18,7 +18,7 @@ use discord::ChannelRef;
 use ::prelude::*;
 
 pub fn stats(context: Context) {
-    if StatsAvailable::find(req!(get_location(&context))).enabled() {
+    if StatsAvailable::find(req!(get_location(&context))).disabled() {
         return;
     }
 
