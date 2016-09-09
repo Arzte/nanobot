@@ -559,7 +559,8 @@ pub fn search(context: Context) {
 
     let db: PgConn = ::DB.lock().unwrap();
     let search_res = db.query(
-        "select key from tags where server_id = $1 and key like '%$2%' limit 15",
+        "select key from tags where server_id = $1 and
+         lower(key) ilike '%' || $2 || '%' limit 15",
         &[&(server_id.0 as i64), &query]
     );
     let tag_list: Rows = match search_res {
