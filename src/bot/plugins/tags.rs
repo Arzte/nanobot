@@ -25,6 +25,11 @@ pub fn delete(context: Context) {
     }
 
     let key = context.text(0);
+
+    if key.is_empty() {
+        let _msg = req!(context.say("No tag given"));
+    }
+
     let aid = context.message.author.id;
     let cid = ChannelId(context.message.channel_id.0 as u64);
 
