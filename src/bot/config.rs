@@ -158,6 +158,15 @@ impl<'a> ConfigItem<'a> {
             .or_else(|| self.value.as_u64().map(|v| v as i64))
             .ok_or(Error::Decode)
     }
+
+    pub fn as_isize(&self) -> Result<isize> {
+        self.value
+            .as_i64()
+            .or_else(|| self.value.as_u64().map(|v| v as i64))
+            .ok_or(Error::Decode)
+            .map(|v| v as isize)
+    }
+
     pub fn as_u64(&self) -> Result<u64> {
         self.value
             .as_u64()

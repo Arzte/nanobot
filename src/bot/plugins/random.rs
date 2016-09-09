@@ -84,33 +84,63 @@ pub fn magic_eight_ball(context: Context) {
 }
 
 pub fn roll(context: Context) {
-    if RollAvailable::find(req!(get_location(&context))).disabled() {
+    let location = req!(get_location(&context));
+
+    if RollAvailable::find(location).disabled() {
         return;
     }
 
-    let arg1 = context.arg(1);
-    let arg2 = context.arg(2);
+    let config_max = req!(RollMaximum::find(location).as_isize());
+    let config_min = req!(RollMinimum::find(location).as_isize());
 
-    let a1 = match arg1.as_isize() {
-        Ok(v) => v,
-        Err(_why) => {
-            let text = format!("Error converting {} to an int", arg1);
-            let _msg = req!(context.say(text));
+    let nums = {
+        let arg1 = context.arg(1);
+        let arg2 = context.arg(2);
 
-            return;
-        },
+        if !arg1.exists() {
+            [1, 6]
+        } else {
+            if !arg2.exists() {
+                let _msg = req!(context.say("Either 0 or 2 numbers must be given"));
+
+                return;
+            }
+
+            let a1 = match arg1.as_isize() {
+                Ok(v) => v,
+                Err(_why) => {
+                    let text = format!("Error converting {} to an int", arg1);
+                    let _msg = req!(context.say(text));
+
+                    return;
+                },
+            };
+
+            if a1 < config_min {
+                let _msg = req!(context.say(format!("Minimum roll is {}", config_min)));
+
+                return;
+            }
+
+            let a2 = match arg2.as_isize() {
+                Ok(v) => v,
+                Err(why) => {
+                    let _msg = req!(context.say(format!("{:?}", why)));
+
+                    return;
+                },
+            };
+
+            if a2 > config_max {
+                let _msg = req!(context.say(format!("Maximum roll is {}", config_max)));
+
+                return;
+            }
+
+            [a1, a2]
+        }
     };
 
-    let a2 = match arg2.as_isize() {
-        Ok(v) => v,
-        Err(why) => {
-            let _msg = req!(context.say(format!("{:?}", why)));
-
-            return;
-        },
-    };
-
-    let nums = vec![a1, a2];
     let min = match nums.iter().min() {
         Some(min) => *min,
         None => {
@@ -130,7 +160,7 @@ pub fn roll(context: Context) {
 
     let random = thread_rng().gen_range(min, max);
 
-    let _msg = req!(context.say(format!("{}", random)));
+    let _msg = req!(context.say(random.to_string()));
 }
 
 pub fn roulette(context: Context) {
