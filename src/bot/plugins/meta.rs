@@ -913,7 +913,7 @@ Discriminator: {}
 
                     format!("{} {} {}", kind, game.name, url)
                 } else {
-                    "N/A".to_owned()
+                    "".to_owned()
                 };
 
                 let status_name = match presence.status {
@@ -924,7 +924,7 @@ Discriminator: {}
 
                 (status_game, status_name)
             } else {
-                (String::from("N/A"), "")
+                (String::from(""), "")
             };
 
             let time = user.id.creation_date().sec;
