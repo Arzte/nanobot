@@ -191,7 +191,7 @@ pub fn hello(context: Context) {
         return;
     }
 
-    let user = if let Some(ref mention) = context.message.mentions.get(0) {
+    let user = if let Some(mention) = context.message.mentions.get(0) {
         &mention.name
     } else {
         &context.message.author.name
@@ -297,6 +297,7 @@ Current Connection: {} UTC```"#, boot, connection)
     let _msg = req!(context.say(text));
 }
 
+#[allow(cyclomatic_complexity)]
 pub fn weather(context: Context) {
     if WeatherAvailable::find(req!(get_location(&context))).disabled() {
         return;
