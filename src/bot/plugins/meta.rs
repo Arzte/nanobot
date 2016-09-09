@@ -939,10 +939,10 @@ Discriminator: {}
       Created: {}
        Joined: {}
         Roles: {}"#, s_name,
-                        s_game,
-                        created_at,
-                        &member.joined_at[..19].replace('T', " "),
-                        role_list)[..]);
+                     s_game,
+                     created_at,
+                     &member.joined_at[..19].replace('T', " "),
+                     role_list)[..]);
 
             break;
         }
