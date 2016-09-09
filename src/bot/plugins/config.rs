@@ -17,6 +17,7 @@
 use discord::model::{ChannelId, permissions};
 use discord::ChannelRef;
 use serde_json::Value;
+use std::env;
 use ::bot::config;
 use ::prelude::*;
 
@@ -41,7 +42,27 @@ pub fn base(context: Context) {
         }
     };
 
-    if !can_use {
+
+    let author_var = if let Ok(var) = env::var("AUTHOR_ID") {
+        var
+    } else {
+        let _msg = req!(context.say("Error getting events"));
+        error!("[env] AUTHOR_ID env var not set");
+
+        return;
+    };
+
+    let author_id = if let Ok(id) = author_var.parse::<u64>() {
+        id
+    } else {
+        let _msg = req!(context.reply("Error getting events"));
+
+        return;
+    };
+
+    let is_bot_owner = context.message.author.id.0 == author_id;
+
+    if !(can_use || is_bot_owner) {
         let _msg = req!(context.say("You do not have permission to manage configuration"));
 
         return;
