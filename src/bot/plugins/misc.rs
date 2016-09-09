@@ -310,20 +310,22 @@ pub fn weather(context: Context) {
         false
     };
 
-    let full_text = context.text(0);
-
-    let location_name = if !first_arg.exists() {
+    let server_id = {
         let state = context.state.lock().unwrap();
-        let server_id = match state.find_channel(&context.message.channel_id) {
+
+        match state.find_channel(&context.message.channel_id) {
             Some(ChannelRef::Public(server, _channel)) => server.id,
             _ => {
                 let _msg = req!(context.say("Could not find server"));
 
                 return;
             },
-        };
-        drop(state);
+        }
+    };
 
+    let full_text = context.text(0);
+
+    let location_name = if !first_arg.exists() {
         let db = ::DB.lock().unwrap();
         let retrieval = db.query(
             "select weather_location from members where server_id = $1 and user_id = $2",
@@ -393,6 +395,24 @@ pub fn weather(context: Context) {
         },
     };
 
+    if save && context.arg(2).exists() {
+        let db = ::DB.lock().unwrap();
+
+        let update = db.execute(
+            "update members set weather_location = $1 where user_id = $2 and
+             server_id = $3",
+            &[
+                &name,
+                &(context.message.author.id.0 as i64),
+                &(server_id.0 as i64)
+            ]
+        );
+
+        if let Err(why) = update {
+            warn!("[weather] Err saving location: {:?}", why);
+        }
+    }
+
     let token = match env::var("FORECAST_TOKEN") {
         Ok(token) => token,
         Err(why) => {
@@ -445,7 +465,6 @@ pub fn weather(context: Context) {
     };
     let current_time = {
         if let Some(offset) = forecast.offset {
-            println!("{:?} {:?}", currently.time, offset);
             let timestamp = currently.time as i64 + (offset as i64 * 3600);
 
             NaiveDateTime::from_timestamp(timestamp, 0)
