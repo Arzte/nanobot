@@ -97,6 +97,40 @@ Giving a list separated by spaces:
 Giving a list separated by commas:
 `;choose cat, dog, bird, turtle`"#);
         map.insert("coinflip", r#"Flips a coin, heads or tails. Sometimes neither."#);
+        map.insert("config", r#"Sets the configuration for a server or channel.
+
+There are 3 configuration-related commands:
+- get
+- list
+- set
+
+These are each accessible via `config get`, `config list`, and `config set`.
+
+There are 3 types of configurations:
+- Availability: this is a simple enabled/disabled switch, where the value is
+represented by "enabled" or "disabled".
+- Integer: This is a whole number value.
+- String: Basic text, such as "This is my configuration value".
+
+
+Get:
+
+`config tags.available`
+or
+`config #channel_name tags.available`
+
+Retrieves the details of a configuration.
+
+
+List:
+`config list`
+
+Lists all of the configuration names, but not their descriptions.
+
+Set:
+`config set tags.available enabled` or `config set #channel_name tags.available enabled`
+
+Sets the value of a configuration, in the same way described above."#);
         map.insert("define", r#"Searches urbandictionary for the given word or phrase, giving back the first result.
 
 Results _can_ and _often will_ be NSFW due to the nature of urbandictionary.
