@@ -211,6 +211,12 @@ pub fn info(context: Context) {
 
     let key = context.text(0);
 
+    if key.is_empty() {
+        let _msg = req!(context.say("No tag given"));
+
+        return;
+    }
+
     let state = context.state.lock().unwrap();
     let s = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.clone(),
