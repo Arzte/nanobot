@@ -191,14 +191,20 @@ pub fn hello(context: Context) {
         return;
     }
 
+    let user = if let Some(ref mention) = context.message.mentions.get(0) {
+        &mention.name
+    } else {
+        &context.message.author.name
+    };
+
     let greetings = vec![
-        format!("Hello {}", context.message.author.name),
-        format!("Hey {}!", context.message.author.name),
+        format!("Hello {}", user),
+        format!("Hey {}!", user),
         "Hello fella!".to_owned(),
         "Hey fella!".to_owned(),
-        format!("What's up {}?", context.message.author.name),
-        format!("Selamat pagi, {}", context.message.author.name),
-        format!("G'day {}!", context.message.author.name),
+        format!("What's up {}?", user),
+        format!("Selamat pagi, {}", user),
+        format!("G'day {}!", user),
     ];
 
     let _msg = match thread_rng().choose(&greetings) {
