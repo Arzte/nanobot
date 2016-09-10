@@ -660,7 +660,7 @@ pub fn ping(context: Context) {
     let secs = (end.timestamp() - start.timestamp()) * 1000;
     let diff = secs + ms;
 
-    let _msg = req!(context.edit(&msg, format!("Ping! `[{}ms]`", diff)));
+    let _msg = req!(context.edit(&msg, format!("Pong! `[{}ms]`", diff)));
 }
 
 pub fn role_info(context: Context) {
