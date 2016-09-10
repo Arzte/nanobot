@@ -59,7 +59,7 @@ lazy_static! {
     };
 
     static ref DISCORD: Arc<Mutex<Discord>> = {
-        Arc::new(Mutex::new(login().unwrap()))
+        Arc::new(Mutex::new(login()))
     };
 
     static ref EVENT_COUNTER: Arc<Mutex<EventCounter>> = {
@@ -79,13 +79,9 @@ pub fn db_connect() -> PostgresConnection {
 }
 
 fn login() -> Result<Discord> {
-    let token = env::var("DISCORD_TOKEN")
-        .expect("DISCORD_TOKEN required");
+    let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN required");
 
-    match Discord::from_bot_token(&token) {
-        Ok(discord) => Ok(discord),
-        Err(why) => Err(Error::Discord(why)),
-    }
+    Discord::from_bot_token(&token).expect("Error logging in")
 }
 
 fn main() {

@@ -336,13 +336,13 @@ pub fn queue(context: Context) {
     drop(state);
 
     let text = {
-        let mut temp = String::from("```xl");
+        let mut temp = String::from("```");
         let state = context.music_state.lock().unwrap();
 
         {
             let requests = match state.queue.get(&server_id) {
-                Some(requests) => requests,
-                None => {
+                Some(requests) if !requests.is_empty() => requests,
+                _ => {
                     let _msg = req!(context.say("No songs are queued"));
 
                     return;
@@ -351,7 +351,7 @@ pub fn queue(context: Context) {
 
             for request in requests {
                 temp.push_str(&format!(r#"
-- **{}** requested by _{}_ [duration: {}]"#,
+- "{}" requested by {} [duration: {}]"#,
 request.response.data.title,
 request.requester_name,
 request.format_duration()));
