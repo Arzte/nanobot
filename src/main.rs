@@ -47,7 +47,6 @@ use bot::event_counter::EventCounter;
 use bot::Uptime;
 use bot::Bot;
 use discord::{Discord, State};
-use error::{Error, Result};
 use postgres::{Connection as PostgresConnection, SslMode};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -78,7 +77,7 @@ pub fn db_connect() -> PostgresConnection {
         .expect(&format!("Error connecting to {}", database_url))
 }
 
-fn login() -> Result<Discord> {
+fn login() -> Discord {
     let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN required");
 
     Discord::from_bot_token(&token).expect("Error logging in")
