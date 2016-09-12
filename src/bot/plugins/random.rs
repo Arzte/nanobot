@@ -30,6 +30,12 @@ pub fn choose(context: Context) {
         choices = text.split(' ').collect();
     }
 
+    if choices.len() < 2 {
+        let _msg = req!(context.say("Error: there must be at least 2 choices"));
+
+        return;
+    }
+
     let _msg = match thread_rng().choose(&choices) {
         Some(choice) => req!(context.say(&choice[..])),
         None => req!(context.reply("No choice found")),
