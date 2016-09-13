@@ -67,6 +67,7 @@ Basic information such as the title, a Hummingbird link, when it aired, the scor
 
 Example:
 `;anime nichijou`"#);
+        map.insert("avatar", r#"Retrieves the URL for the user's avatar."#);
         map.insert("channelinfo", r#"Gives information about a channel.
 
 This includes the following information:
@@ -376,9 +377,8 @@ https://discord.gg/MFHVwvW"#, env!("CARGO_PKG_VERSION"), client_id)));
 }
 
 pub fn channel_info(context: Context) {
-    if ChannelInfoAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(ChannelInfoAvailable, context);
 
     let channel_mentions = context.channel_mentions();
 
@@ -472,9 +472,8 @@ channel.user_limit.unwrap_or(0)));
 }
 
 pub fn emoji(context: Context) {
-    if EmojiAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(EmojiAvailable, context);
 
     let arg_found = context.arg(1);
 
@@ -546,8 +545,6 @@ pub fn events(context: Context) {
     };
 
     if context.message.author.id.0 != author_id {
-        let _msg = req!(context.reply("Only the bot owner can set status"));
-
         return;
     }
 
@@ -595,6 +592,8 @@ pub fn events(context: Context) {
 }
 
 pub fn help(context: Context) {
+    enabled!(Available, context);
+
     let command = context.text(0);
 
     // If no command was given, list the names of all commands
@@ -643,9 +642,8 @@ https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=32225
 }
 
 pub fn ping(context: Context) {
-    if PingAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(PingAvailable, context);
 
     let start = UTC::now();
     let msg = req!(context.say("Ping!"));
@@ -664,9 +662,8 @@ pub fn ping(context: Context) {
 }
 
 pub fn role_info(context: Context) {
-    if RoleInfoAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(RoleInfoAvailable, context);
 
     let name = context.text(0);
 
@@ -723,9 +720,8 @@ Mentionable: {}
 }
 
 pub fn server_info(context: Context) {
-    if ServerInfoAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(ServerInfoAvailable, context);
 
     let state = context.state.lock().unwrap();
     let server = match state.find_channel(&context.message.channel_id) {
@@ -803,8 +799,6 @@ pub fn set_status(context: Context) {
     };
 
     if context.message.author.id.0 != author_id {
-        let _msg = req!(context.reply("Only the bot owner can set status"));
-
         return;
     }
 
@@ -816,9 +810,8 @@ pub fn set_status(context: Context) {
 
 #[allow(cyclomatic_complexity)]
 pub fn user_info(context: Context) {
-    if UserInfoAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(UserInfoAvailable, context);
 
     let arg = context.arg(1);
 

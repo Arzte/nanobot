@@ -20,9 +20,8 @@ use discord::ChannelRef;
 use ::prelude::*;
 
 pub fn delete(context: Context) {
-    if TagsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TagsAvailable, context);
 
     let key = context.text(0);
 
@@ -119,9 +118,8 @@ pub fn delete(context: Context) {
 }
 
 pub fn get(context: Context) {
-    if TagsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TagsAvailable, context);
 
     let mut name = None;
 
@@ -210,9 +208,8 @@ pub fn get(context: Context) {
 }
 
 pub fn info(context: Context) {
-    if TagsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TagsAvailable, context);
 
     let key = context.text(0);
 
@@ -289,9 +286,8 @@ Created at: {}
 }
 
 pub fn list(context: Context) {
-    if TagsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TagsAvailable, context);
 
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
@@ -395,9 +391,8 @@ pub fn list(context: Context) {
 }
 
 pub fn rename(context: Context) {
-    if TagsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TagsAvailable, context);
 
     let text = context.text(0);
     let pos = match text.find(" --> ") {
@@ -534,9 +529,8 @@ pub fn rename(context: Context) {
 }
 
 pub fn search(context: Context) {
-    if TagsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TagsAvailable, context);
 
     let query = context.text(0);
 
@@ -590,9 +584,8 @@ pub fn search(context: Context) {
 }
 
 pub fn set(context: Context) {
-    if TagsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TagsAvailable, context);
 
     let text = context.text(0);
     let pos = match text.find(':') {

@@ -20,12 +20,13 @@ use std::default::Default;
 use std::i64;
 use ::prelude::*;
 
-pub static CONFIGS: [&'static str; 48] = [
+pub static CONFIGS: [&'static str; 49] = [
     "aesthetic.available",
     "aestheticcaps.available",
     "aes.available",
     "aescaps.available",
     "anime.available",
+    "available",
     "channelinfo.available",
     "choose.available",
     "coinflip.available",
@@ -459,6 +460,7 @@ pub fn get_config<'a>(name: &str,
         "aes.available" => Some(AesAvailable::get(location)),
         "aescaps.available" => Some(AesCapsAvailable::get(location)),
         "anime.available" => Some(AnimeAvailable::get(location)),
+        "available" => Some(Available::get(location)),
         "channelinfo.available" => Some(ChannelInfoAvailable::get(location)),
         "choose.available" => Some(ChooseAvailable::get(location)),
         "coinflip.available" => Some(CoinflipAvailable::get(location)),
@@ -516,6 +518,7 @@ pub fn set_config(name: &str,
         "aes.available" => Some(AesAvailable::set(location, value)),
         "aescaps.available" => Some(AesCapsAvailable::set(location, value)),
         "anime.available" => Some(AnimeAvailable::set(location, value)),
+        "available" => Some(Available::set(location, value)),
         "channelinfo.available" => Some(ChannelInfoAvailable::set(location, value)),
         "choose.available" => Some(ChooseAvailable::set(location, value)),
         "coinflip.available" => Some(CoinflipAvailable::set(location, value)),
@@ -601,6 +604,22 @@ config! {
     ConfigType::Availability,
     Value::U64(Availability::Enabled.num()),
     "Whether the ability to use `anime` is available."
+}
+
+config! {
+    Available,
+    "available",
+    ConfigType::Availability,
+    Value::U64(Availability::Enabled.num()),
+    "Whether _any_ commands are enabled. This essentially mutes nano."
+}
+
+config! {
+    AvatarAvailable,
+    "avatar.available",
+    ConfigType::Availability,
+    Value::U64(Availability::Enabled.num()),
+    "Whether the ability to use 'avatar' is available."
 }
 
 config! {

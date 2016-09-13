@@ -18,9 +18,8 @@ use discord::ChannelRef;
 use ::prelude::*;
 
 pub fn stats(context: Context) {
-    if StatsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(StatsAvailable, context);
 
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {

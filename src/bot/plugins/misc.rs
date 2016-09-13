@@ -155,41 +155,57 @@ fn aestheticize(context: Context, modifiers: Vec<Aesthetic>) {
 }
 
 pub fn aescaps(context: Context) {
-    if AesCapsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(AesCapsAvailable, context);
 
     aestheticize(context, vec![Aesthetic::Bold, Aesthetic::Caps])
 }
 
 pub fn aestheticcaps(context: Context) {
-    if AestheticCapsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(AestheticCapsAvailable, context);
 
     aestheticize(context, vec![Aesthetic::Bold, Aesthetic::Caps])
 }
 
 pub fn aesthetic(context: Context) {
-    if AestheticAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(AestheticAvailable, context);
 
     aestheticize(context, vec![])
 }
 
 pub fn aes(context: Context) {
-    if AesAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(AesAvailable, context);
 
     aestheticize(context, vec![])
 }
 
+pub fn avatar(context: Context) {
+    enabled!(Available, context);
+    enabled!(AvatarAvailable, context);
+
+    let _msg = req!(context.say(match context.message.author.avatar_url() {
+        Some(avatar_url) => avatar_url,
+        None => {
+            let hash = match context.message.author.discriminator % 5 {
+                1 => "322c936a8c8be1b803cd94861bdfa868",
+                2 => "dd4dbc0016779df1378e7812eabaa04d",
+                3 => "0e291f67c9274a1abdddeb3fd919cbaa",
+                4 => "1cbd08c76f8af6dddce02c5138971129",
+                5 => "6debd47ed13483642cf09e832ed0bc1b",
+                _ => unreachable!(),
+            };
+
+            format!("https://discordapp.com/assets/{}.png", hash)
+        },
+    }));
+}
+
 pub fn hello(context: Context) {
-    if HelloAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(HelloAvailable, context);
 
     let user = if let Some(mention) = context.message.mentions.get(0) {
         &mention.name
@@ -214,9 +230,8 @@ pub fn hello(context: Context) {
 }
 
 pub fn mfw(context: Context) {
-    if MfwAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(MfwAvailable, context);
 
     let _msg = match thread_rng().choose(&EMOJIS) {
         Some(emoji) => req!(context.say(&format!(":{}:", emoji)[..])),
@@ -225,11 +240,10 @@ pub fn mfw(context: Context) {
 }
 
 pub fn pi(context: Context) {
-    let location = req!(get_location(&context));
+    enabled!(Available, context);
+    enabled!(PiAvailable, context);
 
-    if PiAvailable::find(location).disabled() {
-        return;
-    }
+    let location = req!(get_location(&context));
 
     let mut pi = r#"
         1415926535897932384626433832795028841971693993751058209749445923078
@@ -299,9 +313,8 @@ Current Connection: {} UTC```"#, boot, connection)
 
 #[allow(cyclomatic_complexity)]
 pub fn weather(context: Context) {
-    if WeatherAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(WeatherAvailable, context);
 
     let first_arg = context.arg(1);
 

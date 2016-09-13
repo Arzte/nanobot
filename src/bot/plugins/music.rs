@@ -88,6 +88,8 @@ impl Default for MusicState {
 
 #[allow(or_fun_call)]
 pub fn join(context: Context) {
+    enabled!(Available, context);
+
     let text = context.text(0);
 
     let state = context.state.lock().unwrap();
@@ -151,6 +153,8 @@ pub fn join(context: Context) {
 }
 
 pub fn leave(context: Context) {
+    enabled!(Available, context);
+
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.id,
@@ -179,6 +183,8 @@ pub fn leave(context: Context) {
 
 #[allow(or_fun_call)]
 pub fn play(context: Context) {
+    enabled!(Available, context);
+
     let server_id = {
         let data_state = context.state.lock().unwrap();
         match data_state.find_channel(&context.message.channel_id) {
@@ -321,6 +327,8 @@ pub fn play(context: Context) {
 }
 
 pub fn queue(context: Context) {
+    enabled!(Available, context);
+
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.id,
@@ -377,11 +385,8 @@ request.format_duration()));
 }
 
 pub fn skip(context: Context) {
-    let location = req!(get_location(&context));
-
-    if SkipAvailable::find(location).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(SkipAvailable, context);
 
     let state = context.state.lock().unwrap();
     let (server_id, is_admin) = match state.find_channel(&context.message.channel_id) {
@@ -434,6 +439,7 @@ pub fn skip(context: Context) {
     let err_no = "No song is currently playing";
     let err_already = "You have already voted to skip this song";
 
+    let location = req!(get_location(&context));
     let skip_votes_required = req!(SkipRequired::find(location).as_u64());
 
     let vote = {
@@ -564,6 +570,8 @@ pub fn skip(context: Context) {
 }
 
 pub fn status(context: Context) {
+    enabled!(Available, context);
+
     let state = context.state.lock().unwrap();
     let server_id = match state.find_channel(&context.message.channel_id) {
         Some(ChannelRef::Public(server, _channel)) => server.id,

@@ -18,9 +18,8 @@ use rand::{Rng, thread_rng};
 use ::prelude::*;
 
 pub fn choose(context: Context) {
-    if ChooseAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(ChooseAvailable, context);
 
     let text = context.text(0);
 
@@ -43,9 +42,8 @@ pub fn choose(context: Context) {
 }
 
 pub fn coinflip(context: Context) {
-    if CoinflipAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(CoinflipAvailable, context);
 
     let num = thread_rng().gen::<u8>();
 
@@ -59,9 +57,8 @@ pub fn coinflip(context: Context) {
 }
 
 pub fn magic_eight_ball(context: Context) {
-    if MagicEightBallAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(MagicEightBallAvailable, context);
 
     let answers = [
         // positive
@@ -90,11 +87,10 @@ pub fn magic_eight_ball(context: Context) {
 }
 
 pub fn roll(context: Context) {
-    let location = req!(get_location(&context));
+    enabled!(Available, context);
+    enabled!(RollAvailable, context);
 
-    if RollAvailable::find(location).disabled() {
-        return;
-    }
+    let location = req!(get_location(&context));
 
     let config_max = req!(RollMaximum::find(location).as_isize());
     let config_min = req!(RollMinimum::find(location).as_isize());
@@ -170,9 +166,8 @@ pub fn roll(context: Context) {
 }
 
 pub fn roulette(context: Context) {
-    if RouletteAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(RouletteAvailable, context);
 
     let _msg = req!(context.say(if thread_rng().gen_range(0, 6) == 0 {
         format!("BANG! {} was shot", context.message.author.mention())
@@ -182,9 +177,8 @@ pub fn roulette(context: Context) {
 }
 
 pub fn teams(context: Context) {
-    if TeamsAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(TeamsAvailable, context);
 
     let team_count = match context.arg(1).as_u64() {
         Ok(team_count) => team_count,

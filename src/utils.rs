@@ -21,6 +21,15 @@ use std::collections::BTreeMap;
 use ::prelude::*;
 
 #[macro_escape]
+macro_rules! enabled {
+    ($config:ident, $context:ident) => {
+        if $config::find(req!(get_location(&$context))).disabled() {
+            return;
+        }
+    };
+}
+
+#[macro_escape]
 macro_rules! req {
     ($expr:expr) => {
         match $expr {

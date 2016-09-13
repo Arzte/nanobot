@@ -18,11 +18,8 @@ use urbandictionary;
 use ::prelude::*;
 
 pub fn define(context: Context) {
-    let location = req!(get_location(&context));
-
-    if DefineAvailable::find(location).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(DefineAvailable, context);
 
     let mut definition = match urbandictionary::define(&context.text(0)[..]) {
         Ok(Some(definition)) => definition,
@@ -50,7 +47,7 @@ pub fn define(context: Context) {
 
     let mut text = format!("**{}**\n{}\n\n", definition.word, define);
 
-    if DefineExample::find(location).enabled() {
+    if DefineExample::find(req!(get_location(&context))).enabled() {
         text.push_str("Example: _");
         text.push_str(&definition.example);
         text.push('_');

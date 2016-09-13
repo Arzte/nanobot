@@ -595,6 +595,7 @@ fn handle_message(context: Context) {
         "aes" => misc::aes(context),
         "about" => meta::about(context),
         "anime" => tv::anime(context),
+        "avatar" => misc::avatar(context),
         "emoji" => meta::emoji(context),
         "channelinfo" => meta::channel_info(context),
         "choose" => random::choose(context),

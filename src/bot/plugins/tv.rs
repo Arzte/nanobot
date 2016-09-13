@@ -18,9 +18,8 @@ use hummingbird::{self, ShowType};
 use ::prelude::*;
 
 pub fn anime(context: Context) {
-    if AnimeAvailable::find(req!(get_location(&context))).disabled() {
-        return;
-    }
+    enabled!(Available, context);
+    enabled!(AnimeAvailable, context);
 
     let text = context.text(0);
 
