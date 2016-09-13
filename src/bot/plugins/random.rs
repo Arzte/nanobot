@@ -29,6 +29,10 @@ pub fn choose(context: Context) {
         choices = text.split(' ').collect();
     }
 
+    // Eliminates duplicate choices
+    choices.sort();
+    choices.dedup();
+
     if choices.len() < 2 {
         let _msg = req!(context.say("Error: there must be at least 2 choices"));
 
