@@ -17,6 +17,26 @@
 use rand::{Rng, thread_rng};
 use ::prelude::*;
 
+static MAGIC_EIGHT_BALL_ANSWERS: [&'static str; 14] = [
+    // positive
+    "It is certain",
+    "Most likely",
+    "Outlook good",
+    "Without a doubt",
+    "Yes",
+    "You may rely on it",
+    // neutral
+    "Better not tell you now",
+    "Reply hazy, try again",
+    // negative
+    "Absolutely not",
+    "Don't count on it",
+    "My reply is no",
+    "My sources say no",
+    "Outlook not so good",
+    "Very doubtful",
+];
+
 pub fn choose(context: Context) {
     enabled!(Available, context);
     enabled!(ChooseAvailable, context);
@@ -29,7 +49,7 @@ pub fn choose(context: Context) {
         choices = text.split(' ').collect();
     }
 
-    // Eliminates duplicate choices
+    // Eliminate duplicate choices
     choices.sort();
     choices.dedup();
 
@@ -41,7 +61,7 @@ pub fn choose(context: Context) {
 
     let _msg = match thread_rng().choose(&choices) {
         Some(choice) => req!(context.say(&choice[..])),
-        None => req!(context.reply("No choice found")),
+        None => req!(context.reply("Error: No choice found")),
     };
 }
 
@@ -64,29 +84,9 @@ pub fn magic_eight_ball(context: Context) {
     enabled!(Available, context);
     enabled!(MagicEightBallAvailable, context);
 
-    let answers = [
-        // positive
-        "It is certain",
-        "Most likely",
-        "Outlook good",
-        "Without a doubt",
-        "Yes",
-        "You may rely on it",
-        // neutral
-        "Better not tell you now",
-        "Reply hazy, try again",
-        // negative
-        "Absolutely not",
-        "Don't count on it",
-        "My reply is no",
-        "My sources say no",
-        "Outlook not so good",
-        "Very doubtful",
-    ];
-
-    let _msg = match thread_rng().choose(&answers) {
+    let _msg = match thread_rng().choose(&MAGIC_EIGHT_BALL_ANSWERS) {
         Some(answer) => req!(context.say(&answer[..])),
-        None => req!(context.reply("No answer found")),
+        None => req!(context.reply("Error: No answer found")),
     };
 }
 
@@ -236,11 +236,15 @@ pub fn teams(context: Context) {
         }
     }
 
-    let mut out = String::from("Teams:\n\n");
+    let out = {
+        let mut out = String::from("Teams:\n\n");
 
-    for (pos, team) in teams.iter().enumerate() {
-        out.push_str(&format!("{}. {}\n", pos + 1, team.join(", ")));
-    }
+        for (pos, team) in teams.iter().enumerate() {
+            out.push_str(&format!("{}. {}\n", pos + 1, team.join(", ")));
+        }
+
+        out
+    };
 
     let _msg = req!(context.say(out));
 }

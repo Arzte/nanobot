@@ -24,7 +24,7 @@ pub fn anime(context: Context) {
     let text = context.text(0);
 
     if text.is_empty() {
-        let _msg = req!(context.say("A name must be given"));
+        let _msg = context.say("A name must be given");
 
         return;
     }
@@ -43,7 +43,7 @@ pub fn anime(context: Context) {
     };
 
     if animes.is_empty() {
-        let _msg = req!(context.edit(&msg, "No result found"));
+        let _msg = context.edit(&msg, "No result found");
 
         return;
     }
@@ -72,5 +72,5 @@ Score: {}/5
                      anime.status.name(),
                      anime.episode_count);
 
-    let _msg = req!(context.edit(&msg, info));
+    let _msg = context.edit(&msg, info);
 }

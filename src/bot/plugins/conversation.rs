@@ -31,7 +31,7 @@ pub fn define(context: Context) {
         Err(why) => {
             warn!("[define] Err retrieving {}: {}", &context.text(0), why);
 
-            let _msg = req!(context.say("Error retrieving definition"));
+            let _msg = req!(context.say("Error: Error retrieving definition"));
 
             return;
         },
@@ -53,30 +53,5 @@ pub fn define(context: Context) {
         text.push('_');
     }
 
-    let _msg = req!(context.say(text));
+    let _msg = context.say(text);
 }
-
-/*
-pub fn q(&mut self, context: Context) {
-    let text = context.text(0);
-
-    if text.is_empty() {
-        let _msg = req!(context.say("Input required"));
-
-        return Ok(());
-    }
-
-    let _msg = req!(context.say(match self.cleverbot.say(&text) {
-        Ok(response) => response,
-        Err(why) => {
-            warn!("[q] error retrieving response: {:?}", why);
-
-            let _msg = req!(context.say("Error generating response"));
-
-            return Ok(());
-        },
-    }));
-
-    Ok(())
-}
-*/

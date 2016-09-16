@@ -60,7 +60,7 @@ impl Context {
     }
 
     pub fn arg(&self, number: usize) -> ContextArg {
-        let split: (&str, &str) = self.message.content.split_at(';'.len_utf8());
+        let split: (&str, &str) = self.message.content.split_at('`'.len_utf8());
 
         ContextArg(split.1.split_whitespace().nth(number))
     }

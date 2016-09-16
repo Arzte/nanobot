@@ -14,7 +14,7 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use discord::model::permissions;
+use discord::model::{MessageId, permissions};
 use discord::{ChannelRef, GetMessages};
 use ::prelude::*;
 
@@ -52,7 +52,7 @@ pub fn purge(context: Context) {
     let amount = match amount {
         Some(amount) => amount,
         None => {
-            let _msg = req!(context.say("No amount given"));
+            let _msg = context.say("Error: No amount given");
 
             return;
         },
@@ -65,7 +65,8 @@ pub fn purge(context: Context) {
     let max = req!(PurgeMaximum::find(location).as_u64());
 
     if amount > max {
-        let _msg = req!(context.say(format!("Can only purge {} messages", max)));
+        let _msg = context.say(format!("Error: Can only purge {} messages",
+                                       max));
 
         return;
     }
@@ -73,7 +74,8 @@ pub fn purge(context: Context) {
     let min = req!(PurgeMinimum::find(location).as_u64());
 
     if amount < min {
-        let _msg = req!(context.say(format!("Must purge at least {} messages", min)));
+        let _msg = context.say(format!("Error: Must purge at least {} messages",
+                                       min));
 
         return;
     }
@@ -91,17 +93,15 @@ pub fn purge(context: Context) {
                   context.message.channel_id,
                   why);
 
-            let _msg = req!(context.say("Error retrieving messages to purge"));
+            let _msg = context.say("Error: Error retrieving messages to purge");
 
             return;
         },
     };
 
-    let mut message_ids = vec![];
-
-    for message in messages {
-        message_ids.push(message.id);
-    }
+    let message_ids: Vec<MessageId> = messages.iter()
+        .map(|message| message.id)
+        .collect();
 
     let deletion = discord.delete_messages(context.message.channel_id,
                                            &message_ids);
@@ -109,7 +109,8 @@ pub fn purge(context: Context) {
     drop(discord);
 
     if let Err(why) = deletion {
-        let text = format!("Error deleting messages: {:?}", why);
-        let _msg = req!(context.say(text));
+        warn!("[purge] Err deleting messages: {:?}", why);
+
+        let _msg = context.say("Error: Error while deleting messages");
     }
 }

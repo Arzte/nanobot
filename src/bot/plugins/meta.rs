@@ -353,13 +353,13 @@ pub fn about(context: Context) {
         Err(_why) => {
             error!("[env] No Client ID");
 
-            let _msg = req!(context.say("Error getting client id"));
+            let _msg = context.say("Error getting client id");
 
             return;
         }
     };
 
-    let _msg = req!(context.say(format!(r#"
+    let _msg = context.say(format!(r#"
 nano v{}
 
 Developed by zey (ID: 114941315417899012)
@@ -373,7 +373,7 @@ Invite nano to your server:
 https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=8
 
 Join the nano & friends server!
-https://discord.gg/MFHVwvW"#, env!("CARGO_PKG_VERSION"), client_id)));
+https://discord.gg/MFHVwvW"#, env!("CARGO_PKG_VERSION"), client_id));
 }
 
 pub fn channel_info(context: Context) {
@@ -388,7 +388,7 @@ pub fn channel_info(context: Context) {
         if let Ok(id) = context.arg(1).as_u64() {
             ChannelId(id)
         } else {
-            let _msg = req!(context.say("Can't find channel"));
+            let _msg = context.say("Can't find channel");
 
             return;
         }
@@ -405,23 +405,19 @@ pub fn channel_info(context: Context) {
                     match find {
                         ChannelRef::Public(srv, _channel) => srv.id,
                         _ => {
-                            let text = "This channel is not supported";
-
-                            let _msg = req!(context.say(text));
+                            let _msg = context.say("This channel is not supported");
 
                             return;
                         },
                     }
                 } else {
-                    let _msg = req!(context.say("Can't find server"));
+                    let _msg = context.say("Can't find server");
 
                     return;
                 };
 
                 if server.id != srvid {
-                    let text = "Can't find cross-server channels";
-
-                    let _msg = req!(context.say(text));
+                    let _msg = context.say("Can't find cross-server channels");
 
                     return;
                 }
@@ -429,15 +425,13 @@ pub fn channel_info(context: Context) {
                 channel.clone()
             },
             _ => {
-                let text = "Private Channels are not supported";
-
-                let _msg = req!(context.say(text));
+                let _msg = context.say("Private Channels are not supported at this time");
 
                 return;
             },
         }
     } else {
-        let _msg = req!(context.say("Could not find channel"));
+        let _msg = context.say("Could not find channel");
 
         return;
     };
@@ -463,12 +457,12 @@ pub fn channel_info(context: Context) {
         text.push_str(&format!(r#"
    Bitrate: {}kbps
 User limit: {}"#, channel.bitrate.unwrap_or(0) / 1024,
-channel.user_limit.unwrap_or(0)));
+                  channel.user_limit.unwrap_or(0)));
     }
 
     text.push_str("```");
 
-    let _msg = req!(context.say(text));
+    let _msg = context.say(text);
 }
 
 pub fn emoji(context: Context) {
@@ -480,15 +474,16 @@ pub fn emoji(context: Context) {
     let arg = match arg_found.as_str() {
         Ok(arg) => arg,
         Err(_why) => {
-            let _msg = req!(context.say("Must provide an emoji"));
+            let _msg = context.say("Must provide an emoji");
 
             return;
         },
     };
+
     // A fast way to check this. This will technically have the ability to
     // provide a false error message (such as when someone args "test").
     if !arg.starts_with('<') {
-        let _msg = req!(context.say("Can only process custom emojis"));
+        let _msg = context.say("Can only process custom emojis");
 
         return;
     }
@@ -498,7 +493,7 @@ pub fn emoji(context: Context) {
     let re = match Regex::new(r"<:(.*):([0-9]+)>") {
         Ok(re) => re,
         Err(_why) => {
-            let _msg = req!(context.say(error));
+            let _msg = context.say(error);
 
             return;
         },
@@ -506,7 +501,7 @@ pub fn emoji(context: Context) {
     let caps = match re.captures(arg) {
         Some(re) => re,
         None => {
-            let _msg = req!(context.say(error));
+            let _msg = context.say(error);
 
             return;
         },
@@ -515,23 +510,22 @@ pub fn emoji(context: Context) {
     let id = match caps.at(2) {
         Some(id) => id,
         None => {
-            let _msg = req!(context.say(error));
+            let _msg = context.say(error);
 
             return;
         },
     };
 
-    let text = format!("https://cdn.discordapp.com/emojis/{}.png", id);
-
-    let _msg = req!(context.say(text));
+    let _msg = context.say(format!("https://cdn.discordapp.com/emojis/{}.png", id));
 }
 
 pub fn events(context: Context) {
     let author_var = if let Ok(var) = env::var("AUTHOR_ID") {
         var
     } else {
-        let _msg = req!(context.say("Error getting events"));
         error!("[env] AUTHOR_ID env var not set");
+
+        let _msg = context.say("Error getting events");
 
         return;
     };
@@ -539,7 +533,7 @@ pub fn events(context: Context) {
     let author_id = if let Ok(id) = author_var.parse::<u64>() {
         id
     } else {
-        let _msg = req!(context.reply("Error getting events"));
+        let _msg = context.reply("Error getting events");
 
         return;
     };
@@ -548,12 +542,10 @@ pub fn events(context: Context) {
         return;
     }
 
-    let mut text = String::from("Events seen:\n");
+    let event_types = {
+        let arg_found = context.arg(1);
 
-    let arg_found = context.arg(1);
-
-    let event_types = if let Ok(arg) = arg_found.as_str() {
-        if arg == "--all" {
+        if let Ok("--all") = arg_found.as_str() {
             event_counter::event_types().to_vec()
         } else {
             vec![
@@ -562,20 +554,14 @@ pub fn events(context: Context) {
                 EventType::TypingStart,
             ]
         }
-    } else {
-        vec![
-            EventType::MessageCreate,
-            EventType::PresenceUpdate,
-            EventType::TypingStart,
-        ]
     };
-
 
     let counter = ::EVENT_COUNTER.lock().unwrap();
     let count_map = counter.map(event_types);
     drop(counter);
 
     let mut total = 0;
+    let mut text = String::from("Events seen:\n");
 
     for (amount, names) in count_map.iter().rev() {
         for name in names {
@@ -588,7 +574,7 @@ pub fn events(context: Context) {
 
     text.push_str(&format!("\n\nTotal: {}", total)[..]);
 
-    let _msg = req!(context.say(text));
+    let _msg = context.say(text);
 }
 
 pub fn help(context: Context) {
@@ -609,21 +595,19 @@ pub fn help(context: Context) {
         names.push_str("```Use `help <command>` for info about a command");
 
         let _msg = req!(context.pm_author(names));
-        let _msg = req!(context.say("Check your PMs!"));
+        let _msg = context.say("Check your PMs!");
 
         return;
     }
 
-    match HELP.get(&command[..]) {
-        Some(help) => {
-            let _msg = req!(context.say(*help));
-        },
+    let _msg = match HELP.get(&command[..]) {
+        Some(help) => context.say(*help),
         None => {
             let text = format!("Command `{}` not found", &command);
 
-            let _msg = req!(context.say(text));
+            context.say(text)
         },
-    }
+    };
 }
 
 pub fn invite(context: Context) {
@@ -631,7 +615,9 @@ pub fn invite(context: Context) {
         Ok(client_id) => client_id,
         Err(_why) => {
             error!("[base] No Client ID");
-            let _msg = req!(context.say("Error getting client id"));
+
+            let _msg = context.say("Error getting client id");
+
             return;
         }
     };
@@ -648,17 +634,15 @@ pub fn ping(context: Context) {
     let start = UTC::now();
     let msg = req!(context.say("Ping!"));
     let end = UTC::now();
-
     let ms = {
         let end_ms = end.timestamp_subsec_millis() as i64;
         let start_ms = start.timestamp_subsec_millis() as i64;
 
         end_ms - start_ms
     };
-    let secs = (end.timestamp() - start.timestamp()) * 1000;
-    let diff = secs + ms;
+    let diff = ((end.timestamp() - start.timestamp()) * 1000) + ms;
 
-    let _msg = req!(context.edit(&msg, format!("Pong! `[{}ms]`", diff)));
+    let _msg = context.edit(&msg, format!("Pong! `[{}ms]`", diff));
 }
 
 pub fn role_info(context: Context) {
