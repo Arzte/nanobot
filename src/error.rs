@@ -26,6 +26,7 @@ pub type Result<T> = StdResult<T, Error>;
 pub enum Error {
     Decode,
     Discord(DiscordError),
+    FindingUser,
     Hyper(HyperError),
     Json(JsonError),
     SqlExecution,

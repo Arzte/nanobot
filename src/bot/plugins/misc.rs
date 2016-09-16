@@ -20,6 +20,7 @@ use forecast_io::{self, Icon, Unit};
 use rand::{Rng, thread_rng};
 use std::ascii::AsciiExt;
 use std::{char, env, str};
+use ::bot::utils as bot_utils;
 use ::ext::google_maps;
 use ::prelude::*;
 
@@ -186,21 +187,30 @@ pub fn avatar(context: Context) {
     enabled!(Available, context);
     enabled!(AvatarAvailable, context);
 
-    let _msg = req!(context.say(match context.message.author.avatar_url() {
+    let user = match bot_utils::find_user(&context, context.arg(1)) {
+        Ok(user) => user,
+        Err(_why) => {
+            let _msg = context.say("Error finding user");
+
+            return;
+        },
+    };
+
+    let _msg = context.say(match user.avatar_url() {
         Some(avatar_url) => avatar_url,
         None => {
             let hash = match context.message.author.discriminator % 5 {
-                1 => "322c936a8c8be1b803cd94861bdfa868",
-                2 => "dd4dbc0016779df1378e7812eabaa04d",
-                3 => "0e291f67c9274a1abdddeb3fd919cbaa",
-                4 => "1cbd08c76f8af6dddce02c5138971129",
-                5 => "6debd47ed13483642cf09e832ed0bc1b",
+                0 => "322c936a8c8be1b803cd94861bdfa868",
+                1 => "dd4dbc0016779df1378e7812eabaa04d",
+                2 => "0e291f67c9274a1abdddeb3fd919cbaa",
+                3 => "1cbd08c76f8af6dddce02c5138971129",
+                4 => "6debd47ed13483642cf09e832ed0bc1b",
                 _ => unreachable!(),
             };
 
             format!("https://discordapp.com/assets/{}.png", hash)
         },
-    }));
+    });
 }
 
 pub fn hello(context: Context) {

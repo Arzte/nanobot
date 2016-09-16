@@ -18,6 +18,7 @@ pub mod config;
 pub mod event_counter;
 pub mod plugins;
 pub mod uptime;
+pub mod utils;
 
 pub use self::uptime::Uptime;
 

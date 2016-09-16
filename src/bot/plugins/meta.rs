@@ -14,14 +14,14 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use bot::event_counter::EventType;
-use bot::event_counter;
+use bot::event_counter::{self, EventType};
+use bot::utils as bot_utils;
 use chrono::{NaiveDateTime, UTC};
 use discord::model::{ChannelId, ChannelType, GameType, OnlineStatus};
 use discord::ChannelRef;
 use regex::Regex;
-use std::env;
 use std::collections::BTreeMap;
+use std::env;
 use ::prelude::*;
 
 lazy_static! {
@@ -797,63 +797,13 @@ pub fn user_info(context: Context) {
     enabled!(Available, context);
     enabled!(UserInfoAvailable, context);
 
-    let arg = context.arg(1);
-
-    let user = if let Some(user) = context.message.mentions.get(0) {
-        user.clone()
-    } else if let Ok(info) = arg.as_str() {
-        let (name, discriminator) = if let Some(pos) = info.find('#') {
-            let split = info.split_at(pos);
-
-            let discrim = match split.1.replace("#", "").parse::<u16>() {
-                Ok(discrim) => discrim,
-                Err(_why) => {
-                    let text = "Error retrieving user data";
-                    let _msg = req!(context.say(text));
-
-                    return;
-                },
-            };
-
-            (split.0, Some(discrim))
-        } else {
-            (info, None)
-        };
-
-        let state = context.state.lock().unwrap();
-        let server = match state.find_channel(&context.message.channel_id) {
-            Some(ChannelRef::Public(server, _channel)) => server,
-            _ => {
-                let text = "Error finding user data";
-                let _msg = req!(context.say(text));
-
-                return;
-            },
-        };
-
-        let mut member_found = None;
-
-        for member in &server.members {
-            if if let Some(discrim) = discriminator {
-                member.user.discriminator == discrim && member.user.name == name
-            } else {
-                member.user.name == name
-            } {
-                member_found = Some(member.clone());
-
-                break;
-            }
-        }
-
-        if let Some(member) = member_found {
-            member.user.clone()
-        } else {
-            let _msg = req!(context.say("Error finding user"));
+    let user = match bot_utils::find_user(&context, context.arg(1)) {
+        Ok(user) => user,
+        Err(_why) => {
+            let _msg = context.say("Error finding user");
 
             return;
-        }
-    } else {
-        context.message.author.clone()
+        },
     };
 
     let mut text = format!(r#"```xl
