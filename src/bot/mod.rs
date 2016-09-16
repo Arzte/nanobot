@@ -544,7 +544,7 @@ fn check_user(user: &DiscordUser, db: &PgConnection) {
 
 
 fn handle_message(context: Context) {
-    if !context.message.content.starts_with('`') {
+    if !context.message.content.starts_with(';') {
         debug!("[handle-message] Not a command");
 
         return;
