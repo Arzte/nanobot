@@ -9,7 +9,7 @@ discord = { git = "https://github.com/SpaceManiac/discord-rs.git" }
 dotenv = "0.8.0"
 env_logger = "0.3"
 forecast_io = { git = "https://github.com/zeyla/forecast.io.rs.git" }
-hummingbird = "0.1"
+hummingbird = { git = "https://github.com/zeyla/hummingbird.rs.git" }
 hyper = "> 0.8"
 lazy_static = "0.1"
 log = "0.3"
