@@ -58,6 +58,12 @@ pub fn anime(context: Context) {
     let finished = anime.finished_airing
         .as_ref()
         .map_or("N/A", |v| &v[..]);
+    let rating_str = anime.community_rating.to_string();
+    let rating = if rating_str.len() < 3 {
+        &rating_str[..]
+    } else {
+        &rating_str[..3]
+    };
 
     let info = format!(r#"**{}**
 Hummingbird: {}
@@ -67,7 +73,7 @@ Score: {}/5
                      anime.url,
                      started,
                      finished,
-                     anime.community_rating.round(),
+                     rating,
                      anime.kind.name(),
                      anime.status.name(),
                      anime.episode_count);
