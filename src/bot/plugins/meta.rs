@@ -878,7 +878,9 @@ Discriminator: {}
                 };
 
                 let status_name = match presence.status {
+                    OnlineStatus::DoNotDisturb => "Do Not Disturb",
                     OnlineStatus::Idle => "Idle",
+                    OnlineStatus::Invisible => "Invisible",
                     OnlineStatus::Offline => "Offline",
                     OnlineStatus::Online => "Online",
                 };
