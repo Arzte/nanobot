@@ -40,21 +40,20 @@ fn main() {
     let mut values = String::new();
 
     for entry in walker {
-        let entry = entry.unwrap();
-
-        let path = entry.path().to_str().expect("Error unwrapping path str");
+        let path = entry.unwrap()
+            .path()
+            .to_str().expect("Error unwrapping path str");
 
         if !path.ends_with("tags.json") {
             continue;
         }
 
         let file = File::open(path).unwrap();
-
-        let tags: BTreeMap<String, String> = serde_json::from_reader(file).unwrap();
+        let tags: BTreeMap<String, String> = serde_json::from_reader(file)
+            .unwrap();
 
         let server_id = {
             let split_by_s: Vec<&str> = path.split('s').collect();
-
             let split_by_slash: Vec<&str> = split_by_s[1].split('/').collect();
 
             split_by_slash[0]
@@ -63,7 +62,9 @@ fn main() {
         // Since joining strings of vectors in rust is not that easy, just push
         // to a string.
         for (k, v) in &tags {
-            values.push_str(&format!("(\"{}\", \"{}\", \"{}\"),", k, server_id, v));
+            values.push_str(&format!("(\"{}\", \"{}\", \"{}\"),",
+                                     k,
+                                     server_id,v));
         }
     }
 

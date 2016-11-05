@@ -45,12 +45,12 @@ graph.title = 'Pie Chart'
 
 # Add each key-value pair to the graph's data.
 for i in 0...keys.length
-  graph.data(keys[i], values[i].to_i)
+  graph.data keys[i], values[i].to_i
 end
 
 graph.font = '/usr/share/fonts/TTF/DejaVuSans.ttf'
 
 # Finally, write the output image to a filepath.
-graph.write('./img_temp.png')
+graph.write './img_temp.png'
 
 exit(0)
