@@ -15,8 +15,8 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 use chrono::NaiveDateTime;
+use darksky::{self, Icon, Unit};
 use discord::ChannelRef;
-use forecast_io::{self, Icon, Unit};
 use rand::{Rng, thread_rng};
 use std::ascii::AsciiExt;
 use std::{char, env, str};
@@ -448,7 +448,7 @@ pub fn weather(context: Context) {
         },
     };
 
-    let res = forecast_io::get_forecast_with_options(token, lat, long, |o| {
+    let res = darksky::get_forecast_with_options(token, lat, long, |o| {
         o.unit(Unit::Si)
     });
 

@@ -22,10 +22,10 @@ extern crate lazy_static;
 extern crate log;
 
 extern crate chrono;
+extern crate darksky;
 extern crate discord;
 extern crate dotenv;
 extern crate env_logger;
-extern crate forecast_io;
 extern crate hummingbird;
 extern crate hyper;
 extern crate postgres;

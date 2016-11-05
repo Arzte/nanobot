@@ -8,8 +8,8 @@ chrono = "0.2"
 discord = { git = "https://github.com/SpaceManiac/discord-rs.git" }
 dotenv = "0.8.0"
 env_logger = "0.3"
-forecast_io = { git = "https://gitlab.com/kalasi/forecast.io.rs.git" }
-hummingbird = { git = "https://gitlab.com/kalasi/hummingbird.rs.git" }
+darksky = "0.5"
+hummingbird = "0.1"
 hyper = "> 0.8"
 lazy_static = "0.1"
 log = "0.3"
