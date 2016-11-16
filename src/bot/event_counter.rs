@@ -38,6 +38,8 @@ pub enum EventType {
     MessageUpdate,
     PresenceUpdate,
     PresencesReplace,
+    ReactionAdd,
+    ReactionRemove,
     Ready,
     RelationshipAdd,
     RelationshipRemove,
@@ -71,7 +73,7 @@ pub struct EventCounter {
     counter: HashMap<EventType, u64>,
 }
 
-pub fn event_types() -> [EventType; 44] {
+pub fn event_types() -> [EventType; 46] {
     [
         EventType::CallCreate,
         EventType::CallDelete,
@@ -90,6 +92,8 @@ pub fn event_types() -> [EventType; 44] {
         EventType::MessageUpdate,
         EventType::PresenceUpdate,
         EventType::PresencesReplace,
+        EventType::ReactionAdd,
+        EventType::ReactionRemove,
         EventType::Ready,
         EventType::RelationshipAdd,
         EventType::RelationshipRemove,
@@ -147,6 +151,8 @@ impl EventCounter {
             Event::MessageUpdate { .. } => EventType::MessageUpdate,
             Event::PresenceUpdate { .. } => EventType::PresenceUpdate,
             Event::PresencesReplace(_) => EventType::PresencesReplace,
+            Event::ReactionAdd(_) => EventType::ReactionAdd,
+            Event::ReactionRemove(_) => EventType::ReactionRemove,
             Event::Ready(_) => EventType::Ready,
             Event::RelationshipAdd(_) => EventType::RelationshipAdd,
             Event::RelationshipRemove(_, _) => EventType::RelationshipRemove,
