@@ -14,17 +14,32 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-pub use error::{Error, Result};
-pub use postgres::types::FromSql;
-pub use postgres::rows::Rows;
-pub use ::bot::config::*;
-pub use ::ext::commands::Context;
-pub use ::utils::{get_location, get_server};
+use chrono::{DateTime, UTC};
+use std::default::Default;
 
-use postgres::types::ToSql;
-use postgres::{Connection as PgConnection, Result as PgResult};
-use std::sync::MutexGuard;
+#[derive(Debug)]
+pub struct Uptime {
+    /// Unix timestamp of when the program itself started
+    pub boot: DateTime<UTC>,
+    /// Unix timestamp of when the current connection was made. This should
+    /// probably _technically_ be an Option, _but_ a user will never be able to
+    /// request the uptime if there is no connection, so it's okay.
+    pub connection: DateTime<UTC>,
+}
 
-pub type Params<'a> = Vec<&'a ToSql>;
-pub type PgConn<'a> = MutexGuard<'a, PgConnection>;
-pub type PgRes<'a> = PgResult<Rows<'a>>;
+impl Uptime {
+    pub fn connect(&mut self) {
+        self.connection = UTC::now();
+    }
+}
+
+impl Default for Uptime {
+    fn default() -> Uptime {
+        let now = UTC::now();
+
+        Uptime {
+            boot: now,
+            connection: now,
+        }
+    }
+}

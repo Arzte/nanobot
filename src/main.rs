@@ -1,120 +1,117 @@
-// ISC License (ISC)
-//
-// Copyright (c) 2016, Austin Hellyer <hello@austinhellyer.me>
-//
-// Permission to use, copy, modify, and/or distribute this software for any
-// purpose with or without fee is hereby granted, provided that the above
-// copyright notice and this permission notice appear in all copies.
-//
-// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-// REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-// AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-// INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-// LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-// OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-// PERFORMANCE OF THIS SOFTWARE.
-
-#![allow(unknown_lints)]
-
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate log;
+#[macro_use] extern crate serenity;
 
 extern crate chrono;
-extern crate darksky;
-extern crate discord;
 extern crate dotenv;
 extern crate env_logger;
+extern crate darksky;
+extern crate diesel;
 extern crate hummingbird;
 extern crate hyper;
-extern crate postgres;
 extern crate rand;
 extern crate regex;
 extern crate serde_json;
 extern crate serde;
+extern crate typemap;
 extern crate urbandictionary;
 
-#[macro_use]
-mod utils;
+#[macro_use] mod utils;
 
-mod bot;
-mod error;
-mod ext;
-mod prelude;
+mod commands;
+mod misc;
+mod store;
 
-use bot::event_counter::EventCounter;
-use bot::Uptime;
-use bot::Bot;
-use discord::{Discord, State};
-use postgres::{Connection as PostgresConnection, SslMode};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::{env, fs, thread};
-
-lazy_static! {
-    static ref DB: Arc<Mutex<PostgresConnection>> = {
-        Arc::new(Mutex::new(db_connect()))
-    };
-
-    static ref DISCORD: Arc<Mutex<Discord>> = {
-        Arc::new(Mutex::new(login()))
-    };
-
-    static ref EVENT_COUNTER: Arc<Mutex<EventCounter>> = {
-        Arc::new(Mutex::new(EventCounter::default()))
-    };
-
-    static ref UPTIME: Arc<Mutex<Uptime>> = {
-        Arc::new(Mutex::new(Uptime::default()))
-    };
-}
-
-pub fn db_connect() -> PostgresConnection {
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL");
-
-    PostgresConnection::connect(&database_url[..], SslMode::None)
-        .expect(&format!("Error connecting to {}", database_url))
-}
-
-fn login() -> Discord {
-    let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN required");
-
-    Discord::from_bot_token(&token).expect("Error logging in")
-}
+use misc::Uptime;
+use serenity::client::{Client, Context};
+use serenity::model::Message;
+use std::env;
+use std::collections::HashMap;
+use store::{CommandCounter, ShardUptime};
 
 fn main() {
     env_logger::init().expect("env logger");
-    dotenv::dotenv().ok();
+    dotenv::dotenv().expect("init dotenv");
 
-    // Create the initial directories needed.
-    fs::create_dir_all("./mu/").expect("mu dir");
+    let mut client = Client::login_bot(&env::var("DISCORD_TOKEN").unwrap());
 
-    info!("[main] Starting loop");
+    {
+        let mut data = client.data.lock().unwrap();
+        data.insert::<store::CommandCounter>(HashMap::default());
+        data.insert::<ShardUptime>(HashMap::default());
+    }
 
-    loop {
-        debug!("[main] Connecting...");
+    client.with_framework(|f| f
+        .configure(|c| c
+            .allow_whitespace(true)
+            .on_mention(true)
+            .prefix(";;"))
+        .before(|context, _message, command_name| {
+            let mut data = context.data.lock().unwrap();
+            let counter = data.get_mut::<CommandCounter>().unwrap();
+            let entry = counter.entry(command_name.clone()).or_insert(0);
+            *entry += 1;
+        })
+        .on("8ball", commands::random::magic_eight_ball)
+        .on("aes", commands::misc::aes)
+        .on("aescaps", commands::misc::aescaps)
+        .on("aesthetic", commands::misc::aes)
+        .on("aestheticcaps", commands::misc::aescaps)
+        .on("anime", commands::media::anime)
+        .on("avatar", commands::misc::avatar)
+        .on("choose", commands::random::choose)
+        .on("coinflip", commands::random::coinflip)
+        .command("$ commands", |c| c
+            .check(owner_check)
+            .exec(commands::owner::commands))
+        .on("emoji", commands::meta::emoji)
+        .command("$ eval", |c| c
+            .check(owner_check)
+            .exec(commands::owner::eval)
+            .use_quotes(false))
+        .on("hello", commands::misc::hello)
+        .on("invite", commands::meta::invite)
+        .on("mfw", commands::misc::mfw)
+        .on("pi", commands::misc::pi)
+        .on("ping", commands::meta::ping)
+        .on("roleinfo", commands::meta::role_info)
+        .on("roll", commands::random::roll)
+        .on("roulette", commands::random::roulette)
+        .command("$ set name", |c| c
+            .check(owner_check)
+            .exec(commands::owner::set_name))
+        .command("$ set status", |c| c
+            .check(owner_check)
+            .exec(commands::meta::set_status))
+        .on("udefine", commands::conversation::udefine)
+        .on("uptime", commands::meta::uptime)
+        .on("userinfo", commands::meta::user_info));
 
-        let (conn, state) = {
-            let discord = ::DISCORD.lock().unwrap();
-            match discord.connect() {
-                Ok((conn, ready)) => (conn, State::new(ready)),
-                Err(why) => {
-                    warn!("[main] Error making a connection: {:?}", why);
-                    thread::sleep(Duration::from_secs(900));
+    client.on_ready(|context, ready| {
+        info!("Logged in as: {}", ready.user.name);
 
-                    continue;
-                },
-            }
+        let mut data = context.data.lock().unwrap();
+        let uptimes = data.get_mut::<ShardUptime>().unwrap();
+
+        let name = if let Some(shard) = ready.shard {
+            let entry = uptimes.entry(shard[0]).or_insert_with(Uptime::default);
+            entry.connect();
+
+            format!(";;help or ;;invite [{}/{}]", shard[0] + 1, shard[1])
+        } else {
+            ";;help or ;;invite".to_owned()
         };
 
-        info!("[main] Initializing bot");
-        let mut bot = Bot::new(conn, state);
-        bot.start();
+        context.set_game_name(&name);
+    });
 
-        // It can be assumed Discord went down or the token reset for one reason
-        // or another, so sleep for an amount of time just in case.
-        info!("[base] Sleeping for 900 seconds due to disconnect");
-        thread::sleep(Duration::from_secs(900));
-    }
+    let _ = client.start_autosharded();
+}
+
+fn owner_check(_context: &Context, message: &Message) -> bool {
+    let id = env::var("AUTHOR_ID")
+        .map(|x| x.parse::<u64>().unwrap_or(0))
+        .unwrap_or(0);
+
+    message.author.id == id
 }

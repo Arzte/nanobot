@@ -1,26 +1,22 @@
 [package]
-authors = ["Austin Hellyer <hello@austinhellyer.me>"]
-name = "nanobot"
+name = "nano-serenity"
 version = "0.1.0"
+authors = ["Austin Hellyer <hello@austinhellyer.me>"]
 
 [dependencies]
 chrono = "0.2"
-discord = { git = "https://github.com/SpaceManiac/discord-rs.git" }
-dotenv = "0.8.0"
+dotenv = "0.8"
 env_logger = "0.3"
 darksky = "0.5"
+diesel = "0.8"
 hummingbird = "0.1"
-hyper = "> 0.8"
+hyper = ">= 0.8"
 lazy_static = "0.1"
 log = "0.3"
-postgres = "0.11.11"
 rand = "0.3"
 regex = "0.1"
 serde_json = "0.8"
-serde = "0.8.5"
+serde = "0.8"
+serenity = { path = "/home/sayla/projects/personal/serenity.rs" }
+typemap = "0.3"
 urbandictionary = "0.1"
-
-[[bin]]
-doc = true
-name = "nanobot"
-path = "./src/main.rs"
