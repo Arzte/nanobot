@@ -15,7 +15,7 @@ dependencies = [
  "regex 0.1.80 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "serenity 0.1.1",
+ "serenity 0.1.1 (git+https://github.com/zeyla/serenity.rs.git)",
  "typemap 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "urbandictionary 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -504,6 +504,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.1.1"
+source = "git+https://github.com/zeyla/serenity.rs.git#fbe560032e0d9b9affcd6eed3adf7fae6e796f97"
 dependencies = [
  "base64 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -750,6 +751,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum semver 0.1.20 (registry+https://github.com/rust-lang/crates.io-index)" = "d4f410fedcf71af0345d7607d246e7ad15faaadd49d240ee3b24e5dc21a820ac"
 "checksum serde 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)" = "58a19c0871c298847e6b68318484685cd51fa5478c0c905095647540031356e5"
 "checksum serde_json 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1cb6b19e74d9f65b9d03343730b643d729a446b29376785cd65efdff4675e2fc"
+"checksum serenity 0.1.1 (git+https://github.com/zeyla/serenity.rs.git)" = "<none>"
 "checksum solicit 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "172382bac9424588d7840732b250faeeef88942e37b6e35317dce98cafdd75b2"
 "checksum tempdir 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "87974a6f5c1dfb344d733055601650059a3363de2a6104819293baff662132d6"
 "checksum thread-id 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a9539db560102d1cef46b8b78ce737ff0bb64e7e18d35b2a5688f7d097d0ff03"

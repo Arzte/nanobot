@@ -16,13 +16,13 @@ fn main() {
         let var = env::var("DISCORD_TOKEN").expect("discord token in env");
 
         format!("Bot {}", var)
-	  };
+    };
 
-	  rest::set_token(&token);
+    rest::set_token(&token);
 
     let url = rest::get_gateway().unwrap().url;
     let (shard, _, _) = Shard::new(&url, &token, Some([0, 1]), LoginType::Bot)
-		.expect("err sharding");
+        .expect("err sharding");
 
     let context = Context::new(Some(ChannelId({CHANNEL_ID})),
                                Arc::new(Mutex::new(shard)),
