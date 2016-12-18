@@ -1,5 +1,5 @@
 use rand::{self, Rng};
-use serenity::client::{CACHE, Context};
+use serenity::client::Context;
 use serenity::model::Message;
 
 static AESTHETIC_CHARS: [(char, &'static str); 58] = [
@@ -128,48 +128,6 @@ command!(aes(context, _message, args) {
     }
 });
 
-command!(avatar(context, message, args) {
-    let url = if let Some(user) = message.mentions.first() {
-        user.avatar_url()
-    } else if let Some(arg) = args.first() {
-        let guild_id = match message.guild_id() {
-            Some(guild_id) => guild_id,
-            None => {
-                let _ = context.say("Could not find server data.");
-
-                return;
-            },
-        };
-
-        let avatar_url = CACHE.read()
-            .unwrap()
-            .get_guild(guild_id)
-            .map(|g| g.get_member_named(arg).map(|m| m.user.avatar_url()));
-
-        match avatar_url {
-            Some(Some(avatar_url)) => avatar_url,
-            Some(None) => {
-                let _ = context.say("Could not find avatar");
-
-                return;
-            },
-            None => {
-                let _ = context.say("Could not find user");
-
-                return;
-            },
-        }
-    } else {
-        message.author.avatar_url()
-    };
-
-    let _ = if let Some(url) = url {
-        context.say(&url)
-    } else {
-        context.say("Could not find avatar")
-    };
-});
-
 command!(hello(context, _message, _args) {
     static GREETINGS: [&'static str; 3] = [
         "Hey!",
@@ -233,13 +191,13 @@ command!(pi(context, _message, args) {
             } else {
                 let _ = context.say("Must be at most 1000");
 
-                return;
+                return Ok(());
             }
         },
         Some(Err(_why)) => {
             let _ = context.say("Must be a natural number");
 
-            return;
+            return Ok(());
         },
         None => 102,
     };

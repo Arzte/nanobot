@@ -16,7 +16,7 @@ command!(choose(context, _message, args) {
     if choices.len() < 2 {
         let _ = context.say("Must have at least 2 choices");
 
-        return;
+        return Ok(());
     }
 
     let _ = match rand::thread_rng().choose(&choices) {
@@ -66,7 +66,7 @@ command!(roll(context, _message, args) {
     if !args.is_empty() && args.len() != 2 {
         let _ = context.say("Either 0 or 2 numbers must be given");
 
-        return;
+        return Ok(());
     }
 
     let nums = {
@@ -82,7 +82,7 @@ command!(roll(context, _message, args) {
                 Err(_) => {
                     let _ = context.say(&format!("{} is not an integer", arg1));
 
-                    return;
+                    return Ok(());
                 },
             };
             let arg2 = match arg2.parse::<isize>() {
@@ -90,7 +90,7 @@ command!(roll(context, _message, args) {
                 Err(_) => {
                     let _ = context.say(&format!("{} is not an integer", arg2));
 
-                    return;
+                    return Ok(());
                 },
             };
 
@@ -104,7 +104,7 @@ command!(roll(context, _message, args) {
     if nums[0] == nums[1] {
         let _ = context.say("The given integers can not be equal");
 
-        return;
+        return Ok(());
     }
 
     let number = rand::thread_rng().gen_range(nums[0], nums[1]);

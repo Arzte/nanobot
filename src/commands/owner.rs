@@ -1,10 +1,12 @@
 use serenity::client::Context;
 use serenity::model::Message;
+use std::collections::BTreeMap;
 use std::fmt::Write as FmtWrite;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
-use ::store::CommandCounter;
+use std::env;
+use ::store::{CommandCounter, EventCounter};
 
 command!(commands(context, _message, _args) {
     let list = {
@@ -13,7 +15,7 @@ command!(commands(context, _message, _args) {
         let data = context.data.lock().unwrap();
         let counter = data.get::<CommandCounter>().unwrap();
 
-        for (k, v) in counter {
+        for (k, v) in counter.iter().collect::<BTreeMap<_, _>>() {
             let _ = write!(s, "- {name}: {amount}\n", name=k, amount=v);
         }
 
@@ -32,7 +34,7 @@ command!(eval(context, message, args) {
             Err(_) => {
                 let _ = context.say("Err opening runnable");
 
-                return;
+                return Ok(());
             },
         };
 
@@ -40,7 +42,7 @@ command!(eval(context, message, args) {
         let _ = runnable.read_to_string(&mut s);
 
 
-        s = s.replace("{CHANNEL_ID}", &format!("{}", context.channel_id.unwrap().0))
+        s = s.replace("{CHANNEL_ID}", &message.channel_id.0.to_string())
             .replace("{CODE}", &query);
 
         s
@@ -73,7 +75,7 @@ command!(eval(context, message, args) {
         if let Err(why) = command {
             let _ = context.say(&format!("Err creating file: {:?}", why));
 
-            return;
+            return Ok(());
         }
     }
 
@@ -85,11 +87,28 @@ command!(eval(context, message, args) {
     let _ = fs::remove_file(path);
 });
 
+command!(events(context) {
+    let list = {
+        let mut s = "Events received:\n".to_owned();
+
+        let data = context.data.lock().unwrap();
+        let counter = data.get::<EventCounter>().unwrap();
+
+        for (k, v) in counter.iter().collect::<BTreeMap<_, _>>() {
+            let _ = write!(s, "- {name}: {amount}\n", name=k, amount=v);
+        }
+
+        s
+    };
+
+    let _ = context.say(&list);
+});
+
 command!(set_name(context, message, args) {
     if args.is_empty() {
         let _ = message.reply("No name given");
 
-        return;
+        return Ok(());
     }
 
     let name = args.join(" ");
@@ -102,4 +121,21 @@ command!(set_name(context, message, args) {
             message.reply(":x: Error editing name")
         },
     };
+});
+
+command!(set_status(context, message, args) {
+    let author_id = match env::var("AUTHOR_ID").map(|x| x.parse::<u64>()) {
+        Ok(Ok(author_id)) => author_id,
+        _ => {
+            error!("Valid AUTHOR_ID env var not set");
+
+            return Ok(());
+        },
+    };
+
+    if message.author.id != author_id {
+        return Ok(());
+    }
+
+    context.set_game_name(&args.join(" "));
 });

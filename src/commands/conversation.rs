@@ -6,12 +6,12 @@ command!(udefine(context, _message, args) {
     if args.is_empty() {
         let _ = context.say("No word given");
 
-        return;
+        return Ok(());
     }
 
     let mut msg = match context.say("Searching for definition...") {
         Ok(msg) => msg,
-        Err(_) => return,
+        Err(_) => return Ok(()),
     };
 
     let query = args.join(" ");
@@ -23,7 +23,7 @@ command!(udefine(context, _message, args) {
 
             let _ = context.say("Error retrieving definition");
 
-            return;
+            return Ok(());
         },
     };
 
@@ -32,7 +32,7 @@ command!(udefine(context, _message, args) {
         None => {
             let _ = context.say("No definition found");
 
-            return;
+            return Ok(());
         },
     };
 

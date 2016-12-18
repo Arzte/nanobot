@@ -20,6 +20,48 @@ macro_rules! permissions {
     }
 }
 
+command!(avatar(context, message, args) {
+    let url = if let Some(user) = message.mentions.first() {
+        user.avatar_url()
+    } else if let Some(arg) = args.first() {
+        let guild_id = match message.guild_id() {
+            Some(guild_id) => guild_id,
+            None => {
+                let _ = context.say("Could not find server data.");
+
+                return Ok(());
+            },
+        };
+
+        let avatar_url = CACHE.read()
+            .unwrap()
+            .get_guild(guild_id)
+            .map(|g| g.get_member_named(arg).map(|m| m.user.avatar_url()));
+
+        match avatar_url {
+            Some(Some(avatar_url)) => avatar_url,
+            Some(None) => {
+                let _ = context.say("Could not find avatar");
+
+                return Ok(());
+            },
+            None => {
+                let _ = context.say("Could not find user");
+
+                return Ok(());
+            },
+        }
+    } else {
+        message.author.avatar_url()
+    };
+
+    let _ = if let Some(url) = url {
+        context.say(&url)
+    } else {
+        context.say("Could not find avatar")
+    };
+});
+
 command!(emoji(context, _message, _args, emoji: EmojiIdentifier) {
     let _ = context.say(&emoji.url());
 });
@@ -32,7 +74,7 @@ command!(invite(context, _message, _args) {
 
             let _ = context.say("Error getting client ID");
 
-            return;
+            return Ok(());
         },
     };
 
@@ -64,7 +106,7 @@ command!(role_info(context, message, args) {
         None => {
             let _ = context.say("Error finding channel data");
 
-            return;
+            return Ok(());
         },
     };
 
@@ -73,7 +115,7 @@ command!(role_info(context, message, args) {
         None => {
             let _ = context.say("Could not find server data");
 
-            return;
+            return Ok(());
         },
     };
 
@@ -89,7 +131,7 @@ command!(role_info(context, message, args) {
 
                 let _ = context.say("Mentioned role not found; error logged");
 
-                return;
+                return Ok(());
             },
         }
     } else if !args.is_empty() {
@@ -103,7 +145,7 @@ command!(role_info(context, message, args) {
                     Err(_) => {
                         let _ = context.say("Role not found by name");
 
-                        return;
+                        return Ok(());
                     },
                 };
 
@@ -113,7 +155,7 @@ command!(role_info(context, message, args) {
                         warn!("Couldn't find r{} for c{}", id, message.channel_id);
                         let _ = context.say("Role not found; error logged");
 
-                        return;
+                        return Ok(());
                     },
                 }
             },
@@ -121,7 +163,7 @@ command!(role_info(context, message, args) {
     } else {
         let _ = context.say("A role name must be given or mentioned");
 
-        return;
+        return Ok(());
     };
 
     let description = {
@@ -176,23 +218,6 @@ command!(role_info(context, message, args) {
             .field(|f| f.name("Mentionable").value(mentionable))));
 });
 
-command!(set_status(context, message, args) {
-    let author_id = match env::var("AUTHOR_ID").map(|x| x.parse::<u64>()) {
-        Ok(Ok(author_id)) => author_id,
-        _ => {
-            error!("Valid AUTHOR_ID env var not set");
-
-            return;
-        },
-    };
-
-    if message.author.id != author_id {
-        return;
-    }
-
-    context.set_game_name(&args.join(" "));
-});
-
 command!(uptime(context, message, _args) {
     let shard_number = {
         match context.shard.lock().unwrap().shard_info() {
@@ -201,7 +226,7 @@ command!(uptime(context, message, _args) {
                 let _ = context.say("Error retrieving shard number");
                 error!("Error retrieving shard count on shard");
 
-                return;
+                return Ok(());
             },
         }
     };

@@ -7,14 +7,14 @@ command!(anime(context, _message, args) {
     if args.is_empty() {
         let _ = context.say("A name must be given");
 
-        return;
+        return Ok(());
     }
 
     let query = args.join(" ");
 
     let mut msg = match context.say(&format!("Searching for '{}'...", query)) {
         Ok(msg) => msg,
-        Err(_) => return,
+        Err(_) => return Ok(()),
     };
 
     let series_list = match hummingbird::search_anime(&query[..]) {
@@ -24,14 +24,14 @@ command!(anime(context, _message, args) {
 
             let _ = msg.edit("Error retrieving listing", |e| e);
 
-            return;
+            return Ok(());
         },
     };
 
     if series_list.is_empty() {
         let _ = msg.edit("No results found", |e| e);
 
-        return;
+        return Ok(());
     }
 
     let series = series_list.iter()
