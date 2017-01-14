@@ -82,6 +82,15 @@ command!(rping(context, _message, _args) {
     let _ = message.edit(&format!("Pong! `[{}ms]`", diff), |e| e);
 });
 
+command!(gping(ctx) {
+    let _ = ctx.say(&ctx.shard.lock()
+        .unwrap()
+        .latency()
+        .map_or_else(|| "N/A".to_owned(), |s| {
+            format!("{}.{}s", s.as_secs(), s.subsec_nanos())
+        }));
+});
+
 command!(role_info(context, message, args) {
     let cache = CACHE.read().unwrap();
 

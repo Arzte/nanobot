@@ -107,6 +107,10 @@ fn main() {
                 .exec(commands::meta::rping)
                 .help_available(false)
                 .owners_only(true))
+            .command("gping", |c| c
+                .exec(commands::meta::gping)
+                .help_available(false)
+                .owners_only(true))
             .command("roleinfo", |c| c
                 .exec(commands::meta::role_info))
             .command("uptime", |c| c
