@@ -1,5 +1,3 @@
-use serenity::client::Context;
-use serenity::model::Message;
 use urbandictionary;
 
 command!(udefine(context, _message, args) {
@@ -30,7 +28,7 @@ command!(udefine(context, _message, args) {
     let mut definition = match response.definitions.get_mut(0) {
         Some(definition) => definition,
         None => {
-            let _ = context.say("No definition found");
+            let _ = msg.edit("No definition found", |e| e);
 
             return Ok(());
         },
@@ -50,7 +48,7 @@ command!(udefine(context, _message, args) {
         .colour(0x1D2439)
         .author(|a| a
             .name(&definition.author)
-            .url(&url))
+            .url(&url.replace(' ', "%20")))
         .field(|f| f
             .name("Permalink")
             .value(&format!("[#{}]({})", definition.id, definition.permalink)))

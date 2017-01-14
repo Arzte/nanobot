@@ -1,6 +1,4 @@
 use hummingbird::{self, ShowType};
-use serenity::client::Context;
-use serenity::model::Message;
 use serenity::utils::Colour;
 
 command!(anime(context, _message, args) {
@@ -50,7 +48,7 @@ command!(anime(context, _message, args) {
     let _ = msg.edit("", |e| e
         .title(&series.title)
         .description(&format!("[Hummingbird link]({})", series.url))
-        .thumbnail(|t| t.url(&series.cover_image))
+        .thumbnail(&series.cover_image)
         .colour(Colour::fabled_pink())
         .field(|f| f
             .name("Aired")

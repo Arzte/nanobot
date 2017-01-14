@@ -1,7 +1,7 @@
 use chrono::UTC;
-use serenity::client::{CACHE, Context};
-use serenity::model::{EmojiIdentifier, Message};
-use std::{env, u64};
+use serenity::client::CACHE;
+use serenity::model::EmojiIdentifier;
+use std::u64;
 use ::store::ShardUptime;
 
 macro_rules! permissions {
@@ -66,23 +66,7 @@ command!(emoji(context, _message, _args, emoji: EmojiIdentifier) {
     let _ = context.say(&emoji.url());
 });
 
-command!(invite(context, _message, _args) {
-    let client_id = match env::var("DISCORD_CLIENT_ID") {
-        Ok(client_id) => client_id,
-        Err(_) => {
-            error!("No Client ID");
-
-            let _ = context.say("Error getting client ID");
-
-            return Ok(());
-        },
-    };
-
-    let _ = context.say(&format!("Here's a link to invite me:
-<https://discordapp.com/oauth2/authorize?client_id={}&scope=bot&permissions=3222534>", client_id));
-});
-
-command!(ping(context, _message, _args) {
+command!(rping(context, _message, _args) {
     let start = UTC::now();
     let mut message = req!(context.say("Ping!"));
 

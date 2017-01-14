@@ -24,7 +24,7 @@ impl Key for NanoCache {
 pub struct ShardUptime;
 
 impl Key for ShardUptime {
-    type Value = HashMap<u8, Uptime>;
+    type Value = HashMap<u64, Uptime>;
 }
 
 pub struct CustomCache {

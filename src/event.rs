@@ -40,7 +40,9 @@ pub fn register(client: &mut Client) {
     client.on_friend_suggestion_delete(|ctx, _| {
         reg!(ctx "FriendSuggestionDelete");
     });
-    client.on_guild_create(|ctx, _| {
+    client.on_guild_create(|ctx, guild| {
+        debug!("Received guild: {}", guild.name);
+
         reg!(ctx "GuildCreate");
     });
     client.on_guild_emojis_update(|ctx, _, _| {

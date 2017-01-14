@@ -9,6 +9,7 @@ extern crate darksky;
 extern crate diesel;
 extern crate hummingbird;
 extern crate hyper;
+extern crate psutil;
 extern crate rand;
 extern crate regex;
 extern crate serde_json;
@@ -70,9 +71,10 @@ fn main() {
             .allow_whitespace(true)
             .on_mention(true)
             .owners(owners)
-            .prefix("-="))
+            .prefix(";;"))
         .before(|context, message, command_name| {
             info!("{} used command '{}'", message.author.name, command_name);
+
             let mut data = context.data.lock().unwrap();
             let counter = data.get_mut::<CommandCounter>().unwrap();
             let entry = counter.entry(command_name.clone()).or_insert(0);
@@ -101,8 +103,8 @@ fn main() {
                 .exec(commands::meta::avatar))
             .command("emoji", |c| c
                 .exec(commands::meta::emoji))
-            .command("ping", |c| c
-                .exec(commands::meta::ping)
+            .command("rping", |c| c
+                .exec(commands::meta::rping)
                 .help_available(false)
                 .owners_only(true))
             .command("roleinfo", |c| c
@@ -135,6 +137,10 @@ fn main() {
             .help_available(false)
             .owners_only(true)
             .use_quotes(false))
+        .command("stats", |c| c
+            .exec(commands::owner::stats)
+            .help_available(false)
+            .owners_only(true))
         .command("events", |c| c
             .exec(commands::owner::events)
             .help_available(false)
@@ -149,25 +155,34 @@ fn main() {
             .owners_only(true)));
 
     client.on_ready(|context, ready| {
-        info!("Logged in as: {}", ready.user.name);
-
-        {
-            let mut data = context.data.lock().unwrap();
-            let counter = data.get_mut::<EventCounter>().unwrap();
-            let entry = counter.entry("Ready").or_insert(0);
-            *entry += 1;
+        if let Some(s) = ready.shard {
+            info!("Logged in as '{}' on {}/{}",
+                  ready.user.name,
+                  s[0],
+                  s[1]);
+        } else {
+            info!("Logged in as '{}'", ready.user.name);
         }
 
-        let mut data = context.data.lock().unwrap();
-        let uptimes = data.get_mut::<ShardUptime>().unwrap();
+        let name = {
+            let mut data = context.data.lock().unwrap();
 
-        let name = if let Some(shard) = ready.shard {
-            let entry = uptimes.entry(shard[0]).or_insert_with(Uptime::default);
-            entry.connect();
+            {
+                let counter = data.get_mut::<EventCounter>().unwrap();
+                let entry = counter.entry("Ready").or_insert(0);
+                *entry += 1;
+            }
 
-            format!(";;help [{}/{}]", shard[0] + 1, shard[1])
-        } else {
-            ";;help".to_owned()
+            let uptimes = data.get_mut::<ShardUptime>().unwrap();
+
+            if let Some(shard) = ready.shard {
+                let entry = uptimes.entry(shard[0]).or_insert_with(Uptime::default);
+                entry.connect();
+
+                format!(";;help [{}/{}]", shard[0] + 1, shard[1])
+            } else {
+                ";;help".to_owned()
+            }
         };
 
         context.set_game_name(&name);

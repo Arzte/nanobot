@@ -1,8 +1,8 @@
-use serenity::client::Context;
-use serenity::model::Message;
+use psutil;
+use serenity::client::CACHE;
 use std::collections::BTreeMap;
 use std::fmt::Write as FmtWrite;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::env;
@@ -64,7 +64,7 @@ command!(eval(context, message, args) {
             .arg("--crate-name")
             .arg("runner")
             .arg("-L")
-            .arg("target/debug/deps")
+            .arg("target/release/deps")
             .arg("-o")
             .arg(&path)
             .stdin(Stdio::null())
@@ -83,8 +83,8 @@ command!(eval(context, message, args) {
         let _ = context.say(&format!("Err running program: {:?}", why));
     }
 
-    let _ = fs::remove_file(id);
-    let _ = fs::remove_file(path);
+    //let _ = fs::remove_file(id);
+    //let _ = fs::remove_file(path);
 });
 
 command!(events(context) {
@@ -138,4 +138,51 @@ command!(set_status(context, message, args) {
     }
 
     context.set_game_name(&args.join(" "));
+});
+
+command!(stats(ctx, msg) {
+    let processes = match psutil::process::all() {
+        Ok(processes) => processes,
+        Err(why) => {
+            println!("Err getting processes: {:?}", why);
+
+            let _ = ctx.say("Error getting stats");
+
+            return Ok(());
+        },
+    };
+
+    let process = match processes.iter().find(|p| p.pid == psutil::getpid()) {
+        Some(process) => process,
+        None => {
+            let _ = ctx.say("Error getting stats");
+
+            return Ok(());
+        },
+    };
+
+    let memory = match process.memory() {
+        Ok(memory) => memory,
+        Err(why) => {
+            println!("Err getting process memory: {:?}", why);
+
+            let _ = ctx.say("Error getting stats");
+
+            return Ok(());
+        },
+    };
+
+    const B_TO_MB: u64 = 1024 * 1024;
+
+    let mem_total = memory.size / B_TO_MB;
+    let mem_rss = memory.resident / B_TO_MB;
+    let memory = format!("{}MB/{}MB (RSS/Total)", mem_rss, mem_total);
+    let guilds = CACHE.read().unwrap().guilds.len();
+
+    let _ = ctx.send_message(msg.channel_id, |m|
+        m.embed(|e| e
+            .title("Hat Stats")
+            .field(|f| f.name("Version").value("0.1.0"))
+            .field(|f| f.name("Guilds").value(&guilds.to_string()))
+            .field(|f| f.name("Memory Used").value(&memory))));
 });

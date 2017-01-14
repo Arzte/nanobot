@@ -1,6 +1,4 @@
 use rand::{self, Rng};
-use serenity::client::Context;
-use serenity::model::Message;
 
 command!(choose(context, _message, args) {
     let query = args.join(" ");

@@ -13,10 +13,11 @@ hummingbird = "0.1"
 hyper = ">= 0.8"
 lazy_static = "0.1"
 log = "0.3"
+psutil = "1.0"
 rand = "0.3"
 regex = "0.1"
 serde_json = "0.8"
 serde = "0.8"
-serenity = { git = "https://github.com/zeyla/serenity.rs.git" }
+serenity = { path = "../serenity.rs" }
 typemap = "0.3"
 urbandictionary = "0.1"
