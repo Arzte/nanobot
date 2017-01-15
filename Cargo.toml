@@ -18,6 +18,6 @@ rand = "0.3"
 regex = "0.1"
 serde_json = "0.8"
 serde = "0.8"
-serenity = { path = "../serenity.rs" }
+serenity = { git = "https://github.com/zeyla/serenity.git" }
 typemap = "0.3"
 urbandictionary = "0.1"
