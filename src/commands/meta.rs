@@ -24,7 +24,12 @@ command!(avatar(context, message, args) {
     let url = if let Some(user) = message.mentions.first() {
         user.avatar_url()
     } else if let Some(arg) = args.first() {
-        let guild_id = match message.guild_id() {
+        let guild_id = CACHE.read()
+            .unwrap()
+            .get_guild_channel(message.channel_id)
+            .map(|c| c.guild_id);
+
+        let guild_id = match guild_id {
             Some(guild_id) => guild_id,
             None => {
                 let _ = context.say("Could not find server data.");
@@ -254,12 +259,17 @@ command!(uptime(context, message, _args) {
 
 command!(user_info(context, message, _args) {
     let member = {
-        if let Some(guild_id) = message.guild_id() {
-            let cache = CACHE.read().unwrap();
-            let guild = cache.get_guild(guild_id).unwrap();
+        let guild_id = CACHE.read()
+            .unwrap()
+            .get_guild_channel(message.channel_id)
+            .map(|c| c.guild_id);
 
-            // Clone so that the cache can be dropped ASAP.
-            guild.get_member(message.author.id).cloned()
+        if let Some(guild_id) = guild_id {
+            // Clone so the cache guard can be dropped ASAP.
+            match CACHE.read().unwrap().guilds.get(&guild_id) {
+                Some(guild) => guild.members.get(&message.author.id).cloned(),
+                None => None,
+            }
         } else {
             None
         }
