@@ -192,5 +192,7 @@ fn main() {
         context.set_game_name(&name);
     });
 
-    let _ = client.start_shards(2);
+    if let Err(why) = client.start_autosharded() {
+        error!("Err starting client: {:?}", why);
+    }
 }
