@@ -181,7 +181,7 @@ command!(stats(ctx, msg) {
 
     let _ = ctx.send_message(msg.channel_id, |m|
         m.embed(|e| e
-            .title("Hat Stats")
+            .title("Stats")
             .field(|f| f.name("Version").value("0.1.0"))
             .field(|f| f.name("Guilds").value(&guilds.to_string()))
             .field(|f| f.name("Memory Used").value(&memory))));
