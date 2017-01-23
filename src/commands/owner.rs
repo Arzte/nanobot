@@ -140,7 +140,7 @@ command!(set_status(context, message, args) {
     context.set_game_name(&args.join(" "));
 });
 
-command!(stats(ctx, msg) {
+command!(stats(ctx) {
     let processes = match psutil::process::all() {
         Ok(processes) => processes,
         Err(why) => {
@@ -179,7 +179,7 @@ command!(stats(ctx, msg) {
     let memory = format!("{}MB/{}MB (RSS/Total)", mem_rss, mem_total);
     let guilds = CACHE.read().unwrap().guilds.len();
 
-    let _ = ctx.send_message(msg.channel_id, |m|
+    let _ = ctx.send_message(|m|
         m.embed(|e| e
             .title("Stats")
             .field(|f| f.name("Version").value("0.1.0"))

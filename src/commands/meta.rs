@@ -206,7 +206,7 @@ command!(role_info(context, message, args) {
     let hoisted = if role.hoist { "Yes" } else { "No" };
     let mentionable = if role.mentionable { "Yes" } else { "No" };
 
-    let _ = context.send_message(message.channel_id, |m| m
+    let _ = context.send_message(|m| m
         .embed(|e| e
             .title(&format!("Role info for {} ({})", role.name, role.id.0))
             .description(&description)
@@ -216,7 +216,7 @@ command!(role_info(context, message, args) {
             .field(|f| f.name("Mentionable").value(mentionable))));
 });
 
-command!(uptime(context, message, _args) {
+command!(uptime(context) {
     let shard_number = {
         match context.shard.lock().unwrap().shard_info() {
             Some(shard) => shard[0],
@@ -245,7 +245,7 @@ command!(uptime(context, message, _args) {
 
     let name = CACHE.read().unwrap().user.name.clone();
 
-    let _ = context.send_message(message.channel_id, |m| m
+    let _ = context.send_message(|m| m
         .embed(|e| e
             .colour(0x8700B2)
             .title(&format!("Uptime for {}", name))
@@ -275,7 +275,7 @@ command!(user_info(context, message, _args) {
         }
     };
 
-    let _ = context.send_message(message.channel_id, |m| m
+    let _ = context.send_message(|m| m
         .embed(|mut e| {
             e = e.title(&format!("User info for {}", message.author.name))
                 .field(|f| f.name("ID").value(&message.author.id.to_string()))
