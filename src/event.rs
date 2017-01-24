@@ -54,6 +54,9 @@ pub fn register(client: &mut Client) {
     client.on_guild_member_add(|ctx, _, _| {
         reg!(ctx "GuildMemberAdd");
     });
+    client.on_guild_member_remove(|ctx, _, _, _| {
+        reg!(ctx "GuildMemberRemove");
+    });
     client.on_guild_members_chunk(|ctx, _, _| {
         reg!(ctx "GuildMembersChunk");
     });
