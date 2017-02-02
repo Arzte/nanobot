@@ -10,7 +10,7 @@ env_logger = "0.3"
 darksky = "0.5"
 diesel = "0.8"
 hyper = ">= 0.8"
-kitsu_io = { path = "../kitsu.rs" }
+kitsu_io = { git = "https://github.com/zeyla/kitsu.rs" }
 lazy_static = "0.1"
 log = "0.3"
 psutil = "1.0"
