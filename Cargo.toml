@@ -9,8 +9,8 @@ dotenv = "0.8"
 env_logger = "0.3"
 darksky = "0.5"
 diesel = "0.8"
-hummingbird = "0.1"
 hyper = ">= 0.8"
+kitsu_io = { path = "../kitsu.rs" }
 lazy_static = "0.1"
 log = "0.3"
 psutil = "1.0"
@@ -19,5 +19,6 @@ regex = "0.1"
 serde_json = "0.8"
 serde = "0.8"
 serenity = { git = "https://github.com/zeyla/serenity.git" }
+#serenity = { path = "../serenity.rs" }
 typemap = "0.3"
 urbandictionary = "0.1"

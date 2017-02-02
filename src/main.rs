@@ -7,8 +7,8 @@ extern crate dotenv;
 extern crate env_logger;
 extern crate darksky;
 extern crate diesel;
-extern crate hummingbird;
 extern crate hyper;
+extern crate kitsu_io;
 extern crate psutil;
 extern crate rand;
 extern crate regex;
@@ -71,7 +71,7 @@ fn main() {
             .allow_whitespace(true)
             .on_mention(true)
             .owners(owners)
-            .prefix(";;"))
+            .prefixes(vec![";;", "nano!", "nano pls", "nano, please"]))
         .before(|context, message, command_name| {
             info!("{} used command '{}'", message.author.name, command_name);
 
@@ -97,6 +97,7 @@ fn main() {
                 .exec(commands::random::roulette)))
         .group("Media", |g| g
             .command("anime", |c| c
+                .known_as("animu")
                 .exec(commands::media::anime)))
         .group("Meta", |g| g
             .command("avatar", |c| c
@@ -116,6 +117,7 @@ fn main() {
             .command("uptime", |c| c
                 .exec(commands::meta::uptime))
             .command("userinfo", |c| c
+                .known_as("me")
                 .exec(commands::meta::user_info)))
         .group("Misc", |g| g
             .command("aes", |c| c

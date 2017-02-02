@@ -24,12 +24,12 @@ fn main() {
     let (shard, _, _) = Shard::new(&url, &token, Some([0, 1]), LoginType::Bot)
         .expect("err sharding");
 
-    let context = Context::new(Some(ChannelId({CHANNEL_ID})),
-                               Arc::new(Mutex::new(shard)),
-                               Arc::new(Mutex::new(ShareMap::custom())),
-                               LoginType::Bot);
+    let ctx = Context::new(Some(ChannelId({CHANNEL_ID})),
+                           Arc::new(Mutex::new(shard)),
+                           Arc::new(Mutex::new(ShareMap::custom())),
+                           LoginType::Bot);
 
-    println!("{:?}", {
+    println!("{:#?}", {
         {CODE}
     });
 }

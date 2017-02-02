@@ -2,7 +2,7 @@ use psutil;
 use serenity::client::CACHE;
 use std::collections::BTreeMap;
 use std::fmt::Write as FmtWrite;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::env;
@@ -72,19 +72,56 @@ command!(eval(context, message, args) {
             .stderr(Stdio::null())
             .output();
 
-        if let Err(why) = command {
-            let _ = context.say(&format!("Err creating file: {:?}", why));
+        match command {
+            Ok(output) => {
+                info!("out {:?}", output);
+                if !output.stderr.is_empty() {
+                    let mut s = String::from_utf8_lossy(&output.stderr).into_owned();
+                    s.truncate(500);
 
-            return Ok(());
-        }
+                    let _ = context.say(&format!("Error running rustc:
+```
+{}
+```", s));
+
+                    return Ok(());
+                }
+
+                info!("end out");
+            },
+            Err(why) => {
+                let _ = context.say(&format!("Error running rustc: {:?}", why));
+
+                return Ok(());
+            },
+        };
     }
 
-    if let Err(why) = Command::new(&path).output() {
-        let _ = context.say(&format!("Err running program: {:?}", why));
+    info!("c");
+
+    match Command::new(&path).stdout(Stdio::piped()).stderr(Stdio::piped()).output() {
+        Ok(output) => {
+            let mut out = String::from_utf8_lossy(&output.stdout).into_owned();
+            out.truncate(2000 - query.len() - 100);
+
+            let _ = context.say(&format!("
+**Exit status**: {}
+**In**:
+```rs
+{}
+```
+**Out**:
+```rs
+{}
+```", output.status.code().unwrap_or(1), query, out));
+        },
+        Err(why) => {
+            let _ = context.say(&format!("Err running program: {:?}", why));
+        },
     }
 
-    //let _ = fs::remove_file(id);
-    //let _ = fs::remove_file(path);
+    let _ = fs::remove_file(id);
+    let _ = fs::remove_file(path);
 });
 
 command!(events(context) {

@@ -1,4 +1,5 @@
-use hummingbird::{self, ShowType};
+use kitsu_io;
+use kitsu_io::model::{AnimeType, Type as ShowType};
 use serenity::utils::Colour;
 
 command!(anime(context, _message, args) {
@@ -15,8 +16,8 @@ command!(anime(context, _message, args) {
         Err(_) => return Ok(()),
     };
 
-    let series_list = match hummingbird::search_anime(&query[..]) {
-        Ok(series_list) => series_list,
+    let mut series_list = match kitsu_io::search_anime(|f| f.filter("text", &query[..])) {
+        Ok(series_list) => series_list.data,
         Err(why) => {
             warn!("Err getting anime series '{}': {:?}", query, why);
 
@@ -32,37 +33,66 @@ command!(anime(context, _message, args) {
         return Ok(());
     }
 
-    let series = series_list.iter()
-        .take(3)
-        .find(|series| series.kind == ShowType::TV)
-        .unwrap_or(unsafe { series_list.get_unchecked(0) });
-    let started = series.started_airing.as_ref().map_or("N/A", |v| &v[..]);
-    let finished = series.finished_airing.as_ref().map_or("N/A", |v| &v[..]);
-    let rating_str = series.community_rating.to_string();
+    let series = {
+        let first = series_list.remove(0);
+
+        if first.attributes.kind == AnimeType::TV {
+            first.attributes
+        } else {
+            let series = series_list.into_iter()
+                .take(3)
+                .find(|series| series.attributes.kind == AnimeType::TV);
+
+            match series {
+                Some(series) => series.attributes,
+                None => first.attributes,
+            }
+        }
+    };
+
+    let rating_str = series.average_rating.map_or_else(|| "N/A".to_owned(),
+                                                       |x| x.to_string());
     let rating = if rating_str.len() < 3 {
         &rating_str[..]
     } else {
         &rating_str[..3]
     };
 
-    let _ = msg.edit("", |e| e
-        .title(&series.title)
-        .description(&format!("[Hummingbird link]({})", series.url))
-        .thumbnail(&series.cover_image)
-        .colour(Colour::fabled_pink())
-        .field(|f| f
-            .name("Aired")
-            .value(&format!("{} - {}", &started, &finished)))
-        .field(|f| f
-            .name("Rating")
-            .value(rating))
-        .field(|f| f
-            .name("Type")
-            .value(series.kind.name()))
-        .field(|f| f
-            .name("Status")
-            .value(series.status.name()))
-        .field(|f| f
-            .name("Episodes")
-            .value(&series.episode_count.to_string())));
+    let description = format!("[Kitsu link](https://kitsu.io/anime/{})", series.slug);
+    let title = series.titles.en_jp.unwrap_or(series.titles.ja_jp);
+    let thumbnail = series.poster_image.original;
+    let aired = &format!("{} - {}", &series.start_date, &series.end_date.as_ref().map_or("N/A", |v| &v[..]));
+    let episodes = series.episode_count.map_or_else(|| "N/A".to_owned(), |x| x.to_string());
+    let series_type = match series.kind {
+        AnimeType::Movie => "Movie",
+        AnimeType::Music => "Music",
+        AnimeType::ONA => "ONA",
+        AnimeType::OVA => "OVA",
+        AnimeType::Special => "Special",
+        AnimeType::TV => "TV",
+    };
+
+    let _ = msg.edit("", move |mut e| {
+        e = e.title(&title)
+            .description(&description)
+            .colour(Colour::fabled_pink())
+            .field(|f| f
+                .name("Aired")
+                .value(&aired))
+            .field(|f| f
+                .name("Rating")
+                .value(rating))
+            .field(|f| f
+                .name("Type")
+                .value(series_type))
+            .field(|f| f
+                .name("Episodes")
+                .value(&episodes));
+
+        if let Some(ref thumbnail) = thumbnail {
+            e = e.thumbnail(&thumbnail);
+        }
+
+        e
+    });
 });
