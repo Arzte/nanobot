@@ -1,5 +1,5 @@
 use kitsu_io;
-use kitsu_io::model::{AnimeType, Type as ShowType};
+use kitsu_io::model::AnimeType;
 use serenity::utils::Colour;
 
 command!(anime(context, _message, args) {
