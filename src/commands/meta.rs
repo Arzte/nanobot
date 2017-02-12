@@ -27,7 +27,7 @@ command!(avatar(context, message, args) {
         let guild_id = CACHE.read()
             .unwrap()
             .get_guild_channel(message.channel_id)
-            .map(|c| c.guild_id);
+            .map(|c| c.read().unwrap().guild_id);
 
         let guild_id = match guild_id {
             Some(guild_id) => guild_id,
@@ -41,7 +41,7 @@ command!(avatar(context, message, args) {
         let avatar_url = CACHE.read()
             .unwrap()
             .get_guild(guild_id)
-            .map(|g| g.get_member_named(arg).map(|m| m.user.avatar_url()));
+            .map(|g| g.read().unwrap().get_member_named(arg).map(|m| m.user.read().unwrap().avatar_url()));
 
         match avatar_url {
             Some(Some(avatar_url)) => avatar_url,
@@ -100,7 +100,7 @@ command!(role_info(context, message, args) {
     let cache = CACHE.read().unwrap();
 
     let guild_id = match cache.get_guild_channel(message.channel_id) {
-        Some(channel) => channel.guild_id,
+        Some(channel) => channel.read().unwrap().guild_id,
         None => {
             let _ = context.say("Error finding channel data");
 
@@ -122,7 +122,7 @@ command!(role_info(context, message, args) {
     let role = if !message.mention_roles.is_empty() {
         let id = unsafe { message.mention_roles.get_unchecked(0) };
 
-        match guild.roles.values().find(|r| r.id == *id).cloned() {
+        match guild.read().unwrap().roles.values().find(|r| r.id == *id).cloned() {
             Some(role) => role,
             None => {
                 warn!("Couldn't find r{} for c{}", id, message.channel_id);
@@ -135,7 +135,7 @@ command!(role_info(context, message, args) {
     } else if !args.is_empty() {
         let role_name = args.join(" ");
 
-        match guild.roles.values().find(|r| r.name == role_name).cloned() {
+        match guild.read().unwrap().roles.values().find(|r| r.name == role_name).cloned() {
             Some(role) => role,
             None => {
                 let id = match role_name.parse::<u64>() {
@@ -147,7 +147,7 @@ command!(role_info(context, message, args) {
                     },
                 };
 
-                match guild.roles.values().find(|r| r.id == id).cloned() {
+                match guild.read().unwrap().roles.values().find(|r| r.id == id).cloned() {
                     Some(role) => role,
                     None => {
                         warn!("Couldn't find r{} for c{}", id, message.channel_id);
@@ -262,12 +262,12 @@ command!(user_info(context, message, _args) {
         let guild_id = CACHE.read()
             .unwrap()
             .get_guild_channel(message.channel_id)
-            .map(|c| c.guild_id);
+            .map(|c| c.read().unwrap().guild_id);
 
         if let Some(guild_id) = guild_id {
             // Clone so the cache guard can be dropped ASAP.
             match CACHE.read().unwrap().guilds.get(&guild_id) {
-                Some(guild) => guild.members.get(&message.author.id).cloned(),
+                Some(guild) => guild.read().unwrap().members.get(&message.author.id).cloned(),
                 None => None,
             }
         } else {
