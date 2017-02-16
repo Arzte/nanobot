@@ -2,16 +2,16 @@ use kitsu_io;
 use kitsu_io::model::AnimeType;
 use serenity::utils::Colour;
 
-command!(anime(context, _message, args) {
+command!(anime(ctx, _msg, args) {
     if args.is_empty() {
-        let _ = context.say("A name must be given");
+        let _ = ctx.say("A name must be given");
 
         return Ok(());
     }
 
     let query = args.join(" ");
 
-    let mut msg = match context.say(&format!("Searching for '{}'...", query)) {
+    let mut msg = match ctx.say(&format!("Searching for '{}'...", query)) {
         Ok(msg) => msg,
         Err(_) => return Ok(()),
     };

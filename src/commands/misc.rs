@@ -111,21 +111,21 @@ fn aestheticize(mut content: String, modifiers: Vec<AestheticMode>)
     Some(content)
 }
 
-command!(aescaps(context, _message, args) {
+command!(aescaps(ctx, _msg, args) {
     let modifiers = vec![AestheticMode::Bold, AestheticMode::Caps];
 
     if let Some(content) = aestheticize(args.join(" "), modifiers) {
-        let _ = context.say(&content);
+        let _ = ctx.say(&content);
     }
 });
 
-command!(aes(context, _message, args) {
+command!(aes(ctx, _msg, args) {
     if let Some(content) = aestheticize(args.join(" "), vec![]) {
-        let _ = context.say(&content);
+        let _ = ctx.say(&content);
     }
 });
 
-command!(hello(context, _message, _args) {
+command!(hello(ctx) {
     static GREETINGS: [&'static str; 3] = [
         "Hey!",
         "Selamat pagi",
@@ -133,12 +133,12 @@ command!(hello(context, _message, _args) {
     ];
 
     match rand::thread_rng().choose(&GREETINGS) {
-        Some(greeting) => drop(context.say(greeting)),
+        Some(greeting) => drop(ctx.say(greeting)),
         None => error!("No greeting found"),
     }
 });
 
-command!(mfw(context, _message, _args) {
+command!(mfw(ctx) {
     static EMOJIS: [&'static str; 32] = [
         "blush",
         "cop",
@@ -175,29 +175,29 @@ command!(mfw(context, _message, _args) {
     ];
 
     let _ = match rand::thread_rng().choose(&EMOJIS) {
-        Some(emoji) => context.say(&format!(":{}:", emoji)),
-        None => context.say("Emoji not found"),
+        Some(emoji) => ctx.say(&format!(":{}:", emoji)),
+        None => ctx.say("Emoji not found"),
     };
 });
 
-command!(pi(context, _message, args) {
+command!(pi(ctx, _msg, args) {
     let length = match args.first().map(|x| x.parse::<usize>()) {
         Some(Ok(length)) => {
             if length <= 1000 {
                 length + 2
             } else {
-                let _ = context.say("Must be at most 1000");
+                let _ = ctx.say("Must be at most 1000");
 
                 return Ok(());
             }
         },
         Some(Err(_why)) => {
-            let _ = context.say("Must be a natural number");
+            let _ = ctx.say("Must be a natural number");
 
             return Ok(());
         },
         None => 102,
     };
 
-    let _ = context.say(&PI[..length]);
+    let _ = ctx.say(&PI[..length]);
 });

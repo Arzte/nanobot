@@ -20,19 +20,19 @@ macro_rules! permissions {
     }
 }
 
-command!(avatar(context, message, args) {
-    let url = if let Some(user) = message.mentions.first() {
+command!(avatar(ctx, msg, args) {
+    let url = if let Some(user) = msg.mentions.first() {
         user.avatar_url()
     } else if let Some(arg) = args.first() {
         let guild_id = CACHE.read()
             .unwrap()
-            .get_guild_channel(message.channel_id)
+            .get_guild_channel(msg.channel_id)
             .map(|c| c.read().unwrap().guild_id);
 
         let guild_id = match guild_id {
             Some(guild_id) => guild_id,
             None => {
-                let _ = context.say("Could not find server data.");
+                let _ = ctx.say("Could not find server data.");
 
                 return Ok(());
             },
@@ -46,34 +46,34 @@ command!(avatar(context, message, args) {
         match avatar_url {
             Some(Some(avatar_url)) => avatar_url,
             Some(None) => {
-                let _ = context.say("Could not find avatar");
+                let _ = ctx.say("Could not find avatar");
 
                 return Ok(());
             },
             None => {
-                let _ = context.say("Could not find user");
+                let _ = ctx.say("Could not find user");
 
                 return Ok(());
             },
         }
     } else {
-        message.author.avatar_url()
+        msg.author.avatar_url()
     };
 
     let _ = if let Some(url) = url {
-        context.say(&url)
+        ctx.say(&url)
     } else {
-        context.say("Could not find avatar")
+        ctx.say("Could not find avatar")
     };
 });
 
-command!(emoji(context, _message, _args, emoji: EmojiIdentifier) {
-    let _ = context.say(&emoji.url());
+command!(emoji(ctx, _msg, _args, emoji: EmojiIdentifier) {
+    let _ = ctx.say(&emoji.url());
 });
 
-command!(rping(context, _message, _args) {
+command!(rping(ctx) {
     let start = UTC::now();
-    let mut message = req!(context.say("Ping!"));
+    let mut msg = req!(ctx.say("Ping!"));
 
     let end = UTC::now();
     let ms = {
@@ -84,7 +84,7 @@ command!(rping(context, _message, _args) {
     };
     let diff = ((end.timestamp() - start.timestamp()) * 1000) + ms;
 
-    let _ = message.edit(&format!("Pong! `[{}ms]`", diff), |e| e);
+    let _ = msg.edit(&format!("Pong! `[{}ms]`", diff), |e| e);
 });
 
 command!(gping(ctx) {
@@ -96,13 +96,13 @@ command!(gping(ctx) {
         }));
 });
 
-command!(role_info(context, message, args) {
+command!(role_info(ctx, msg, args) {
     let cache = CACHE.read().unwrap();
 
-    let guild_id = match cache.get_guild_channel(message.channel_id) {
+    let guild_id = match cache.get_guild_channel(msg.channel_id) {
         Some(channel) => channel.read().unwrap().guild_id,
         None => {
-            let _ = context.say("Error finding channel data");
+            let _ = ctx.say("Error finding channel data");
 
             return Ok(());
         },
@@ -111,7 +111,7 @@ command!(role_info(context, message, args) {
     let guild = match cache.get_guild(guild_id) {
         Some(guild) => guild,
         None => {
-            let _ = context.say("Could not find server data");
+            let _ = ctx.say("Could not find server data");
 
             return Ok(());
         },
@@ -119,15 +119,15 @@ command!(role_info(context, message, args) {
 
     // It's a pretty inexpensive operation to clone a role, so it should save
     // keeping the cache unlocked.
-    let role = if !message.mention_roles.is_empty() {
-        let id = unsafe { message.mention_roles.get_unchecked(0) };
+    let role = if !msg.mention_roles.is_empty() {
+        let id = unsafe { msg.mention_roles.get_unchecked(0) };
 
         match guild.read().unwrap().roles.values().find(|r| r.id == *id).cloned() {
             Some(role) => role,
             None => {
-                warn!("Couldn't find r{} for c{}", id, message.channel_id);
+                warn!("Couldn't find r{} for c{}", id, msg.channel_id);
 
-                let _ = context.say("Mentioned role not found; error logged");
+                let _ = ctx.say("Mentioned role not found; error logged");
 
                 return Ok(());
             },
@@ -141,7 +141,7 @@ command!(role_info(context, message, args) {
                 let id = match role_name.parse::<u64>() {
                     Ok(id) => id,
                     Err(_) => {
-                        let _ = context.say("Role not found by name");
+                        let _ = ctx.say("Role not found by name");
 
                         return Ok(());
                     },
@@ -150,8 +150,8 @@ command!(role_info(context, message, args) {
                 match guild.read().unwrap().roles.values().find(|r| r.id == id).cloned() {
                     Some(role) => role,
                     None => {
-                        warn!("Couldn't find r{} for c{}", id, message.channel_id);
-                        let _ = context.say("Role not found; error logged");
+                        warn!("Couldn't find r{} for c{}", id, msg.channel_id);
+                        let _ = ctx.say("Role not found; error logged");
 
                         return Ok(());
                     },
@@ -159,7 +159,7 @@ command!(role_info(context, message, args) {
             },
         }
     } else {
-        let _ = context.say("A role name must be given or mentioned");
+        let _ = ctx.say("A role name must be given or mentioned");
 
         return Ok(());
     };
@@ -206,7 +206,7 @@ command!(role_info(context, message, args) {
     let hoisted = if role.hoist { "Yes" } else { "No" };
     let mentionable = if role.mentionable { "Yes" } else { "No" };
 
-    let _ = context.send_message(|m| m
+    let _ = ctx.send_message(|m| m
         .embed(|e| e
             .title(&format!("Role info for {} ({})", role.name, role.id.0))
             .description(&description)
@@ -216,12 +216,12 @@ command!(role_info(context, message, args) {
             .field(|f| f.name("Mentionable").value(mentionable))));
 });
 
-command!(uptime(context) {
+command!(uptime(ctx) {
     let shard_number = {
-        match context.shard.lock().unwrap().shard_info() {
+        match ctx.shard.lock().unwrap().shard_info() {
             Some(shard) => shard[0],
             None => {
-                let _ = context.say("Error retrieving shard number");
+                let _ = ctx.say("Error retrieving shard number");
                 error!("Error retrieving shard count on shard");
 
                 return Ok(());
@@ -230,7 +230,7 @@ command!(uptime(context) {
     };
 
     let (boot, conn) = {
-        let data = context.data.lock().unwrap();
+        let data = ctx.data.lock().unwrap();
         let uptimes = data.get::<ShardUptime>().unwrap();
 
         if let Some(entry) = uptimes.get(&shard_number) {
@@ -245,7 +245,7 @@ command!(uptime(context) {
 
     let name = CACHE.read().unwrap().user.name.clone();
 
-    let _ = context.send_message(|m| m
+    let _ = ctx.send_message(|m| m
         .embed(|e| e
             .colour(0x8700B2)
             .title(&format!("Uptime for {}", name))
@@ -257,17 +257,17 @@ command!(uptime(context) {
                 .value(&conn))));
 });
 
-command!(user_info(context, message, _args) {
+command!(user_info(ctx, msg) {
     let member = {
         let guild_id = CACHE.read()
             .unwrap()
-            .get_guild_channel(message.channel_id)
+            .get_guild_channel(msg.channel_id)
             .map(|c| c.read().unwrap().guild_id);
 
         if let Some(guild_id) = guild_id {
             // Clone so the cache guard can be dropped ASAP.
             match CACHE.read().unwrap().guilds.get(&guild_id) {
-                Some(guild) => guild.read().unwrap().members.get(&message.author.id).cloned(),
+                Some(guild) => guild.read().unwrap().members.get(&msg.author.id).cloned(),
                 None => None,
             }
         } else {
@@ -275,13 +275,13 @@ command!(user_info(context, message, _args) {
         }
     };
 
-    let _ = context.send_message(|m| m
+    let _ = ctx.send_message(|m| m
         .embed(|mut e| {
-            e = e.title(&format!("User info for {}", message.author.name))
-                .field(|f| f.name("ID").value(&message.author.id.to_string()))
+            e = e.title(&format!("User info for {}", msg.author.name))
+                .field(|f| f.name("ID").value(&msg.author.id.to_string()))
                 .field(|f| f
                     .name("Discriminator")
-                    .value(&message.author.discriminator.to_string()));
+                    .value(&msg.author.discriminator.to_string()));
 
             if let Some(ref member) = member {
                 e = e

@@ -1,6 +1,6 @@
 use rand::{self, Rng};
 
-command!(choose(context, _message, args) {
+command!(choose(ctx, _msg, args) {
     let query = args.join(" ");
     let mut choices: Vec<&str> = query.split(", ").collect::<Vec<&str>>();
 
@@ -12,28 +12,28 @@ command!(choose(context, _message, args) {
     choices.dedup();
 
     if choices.len() < 2 {
-        let _ = context.say("Must have at least 2 choices");
+        let _ = ctx.say("Must have at least 2 choices");
 
         return Ok(());
     }
 
     let _ = match rand::thread_rng().choose(&choices) {
-        Some(choice) => context.say(&choice[..]),
-        None => context.say("No choice found"),
+        Some(choice) => ctx.say(&choice[..]),
+        None => ctx.say("No choice found"),
     };
 });
 
-command!(coinflip(context, _message, _args) {
+command!(coinflip(ctx, _msg, _args) {
     let num = rand::thread_rng().gen::<u8>();
 
-    let _ = context.say(match num {
+    let _ = ctx.say(match num {
         0 ... 126 => "Heads",
         128 ... 255 => "Tails",
         _ => "On its side",
     });
 });
 
-command!(magic_eight_ball(context, _message, _args) {
+command!(magic_eight_ball(ctx, _msg, _args) {
     let answers: [&'static str; 14] = [
         // positive
         "It is certain",
@@ -55,14 +55,14 @@ command!(magic_eight_ball(context, _message, _args) {
     ];
 
     let _ = match rand::thread_rng().choose(&answers) {
-        Some(answer) => context.say(&answer),
-        None => context.say("No answer found"),
+        Some(answer) => ctx.say(&answer),
+        None => ctx.say("No answer found"),
     };
 });
 
-command!(roll(context, _message, args) {
+command!(roll(ctx, _msg, args) {
     if !args.is_empty() && args.len() != 2 {
-        let _ = context.say("Either 0 or 2 numbers must be given");
+        let _ = ctx.say("Either 0 or 2 numbers must be given");
 
         return Ok(());
     }
@@ -78,7 +78,7 @@ command!(roll(context, _message, args) {
             let arg1 = match arg1.parse::<isize>() {
                 Ok(arg1) => arg1,
                 Err(_) => {
-                    let _ = context.say(&format!("{} is not an integer", arg1));
+                    let _ = ctx.say(&format!("{} is not an integer", arg1));
 
                     return Ok(());
                 },
@@ -86,7 +86,7 @@ command!(roll(context, _message, args) {
             let arg2 = match arg2.parse::<isize>() {
                 Ok(arg2) => arg2,
                 Err(_) => {
-                    let _ = context.say(&format!("{} is not an integer", arg2));
+                    let _ = ctx.say(&format!("{} is not an integer", arg2));
 
                     return Ok(());
                 },
@@ -100,22 +100,22 @@ command!(roll(context, _message, args) {
     };
 
     if nums[0] == nums[1] {
-        let _ = context.say("The given integers can not be equal");
+        let _ = ctx.say("The given integers can not be equal");
 
         return Ok(());
     }
 
     let number = rand::thread_rng().gen_range(nums[0], nums[1]);
 
-    let _ = context.say(&number.to_string());
+    let _ = ctx.say(&number.to_string());
 });
 
-command!(roulette(context, message, _args) {
+command!(roulette(ctx, message, _args) {
     let result = if rand::thread_rng().gen_range(0, 6) == 0 {
         format!("BANG! {} was shot", message.author)
     } else {
         r"\*click\*".to_owned()
     };
 
-    let _ = context.say(&result);
+    let _ = ctx.say(&result);
 });

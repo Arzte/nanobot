@@ -8,11 +8,11 @@ use std::process::{Command, Stdio};
 use std::env;
 use ::store::{CommandCounter, EventCounter};
 
-command!(commands(context, _message, _args) {
+command!(commands(ctx, _msg, _args) {
     let list = {
         let mut s = "Commands used:\n".to_owned();
 
-        let data = context.data.lock().unwrap();
+        let data = ctx.data.lock().unwrap();
         let counter = data.get::<CommandCounter>().unwrap();
 
         for (k, v) in counter.iter().collect::<BTreeMap<_, _>>() {
@@ -22,17 +22,17 @@ command!(commands(context, _message, _args) {
         s
     };
 
-    let _ = context.say(&list);
+    let _ = ctx.say(&list);
 });
 
-command!(eval(context, message, args) {
+command!(eval(ctx, message, args) {
     let query = args.join(" ");
 
     let s = {
         let mut runnable = match File::open("./runnable.rs") {
             Ok(runnable) => runnable,
             Err(_) => {
-                let _ = context.say("Err opening runnable");
+                let _ = ctx.say("Err opening runnable");
 
                 return Ok(());
             },
@@ -79,7 +79,7 @@ command!(eval(context, message, args) {
                     let mut s = String::from_utf8_lossy(&output.stderr).into_owned();
                     s.truncate(500);
 
-                    let _ = context.say(&format!("Error running rustc:
+                    let _ = ctx.say(&format!("Error running rustc:
 ```
 {}
 ```", s));
@@ -90,7 +90,7 @@ command!(eval(context, message, args) {
                 info!("end out");
             },
             Err(why) => {
-                let _ = context.say(&format!("Error running rustc: {:?}", why));
+                let _ = ctx.say(&format!("Error running rustc: {:?}", why));
 
                 return Ok(());
             },
@@ -104,7 +104,7 @@ command!(eval(context, message, args) {
             let mut out = String::from_utf8_lossy(&output.stdout).into_owned();
             out.truncate(2000 - query.len() - 100);
 
-            let _ = context.say(&format!("
+            let _ = ctx.say(&format!("
 **Exit status**: {}
 **In**:
 ```rs
@@ -116,7 +116,7 @@ command!(eval(context, message, args) {
 ```", output.status.code().unwrap_or(1), query, out));
         },
         Err(why) => {
-            let _ = context.say(&format!("Err running program: {:?}", why));
+            let _ = ctx.say(&format!("Err running program: {:?}", why));
         },
     }
 
@@ -124,11 +124,11 @@ command!(eval(context, message, args) {
     let _ = fs::remove_file(path);
 });
 
-command!(events(context) {
+command!(events(ctx) {
     let list = {
         let mut s = "Events received:\n".to_owned();
 
-        let data = context.data.lock().unwrap();
+        let data = ctx.data.lock().unwrap();
         let counter = data.get::<EventCounter>().unwrap();
 
         for (k, v) in counter.iter().collect::<BTreeMap<_, _>>() {
@@ -138,10 +138,10 @@ command!(events(context) {
         s
     };
 
-    let _ = context.say(&list);
+    let _ = ctx.say(&list);
 });
 
-command!(set_name(context, message, args) {
+command!(set_name(ctx, message, args) {
     if args.is_empty() {
         let _ = message.reply("No name given");
 
@@ -150,7 +150,7 @@ command!(set_name(context, message, args) {
 
     let name = args.join(" ");
 
-    let _ = match context.edit_profile(|p| p.username(&name)) {
+    let _ = match ctx.edit_profile(|p| p.username(&name)) {
         Ok(_) => message.reply(":ok_hand:"),
         Err(why) => {
             warn!("Err setting name: {:?}", why);
@@ -160,7 +160,7 @@ command!(set_name(context, message, args) {
     };
 });
 
-command!(set_status(context, message, args) {
+command!(set_status(ctx, message, args) {
     let author_id = match env::var("AUTHOR_ID").map(|x| x.parse::<u64>()) {
         Ok(Ok(author_id)) => author_id,
         _ => {
@@ -174,7 +174,7 @@ command!(set_status(context, message, args) {
         return Ok(());
     }
 
-    context.set_game_name(&args.join(" "));
+    ctx.set_game_name(&args.join(" "));
 });
 
 command!(stats(ctx) {
