@@ -71,7 +71,7 @@ fn main() {
             .allow_whitespace(true)
             .on_mention(true)
             .owners(owners)
-            .prefixes(vec![";;", "nano!", "nano pls", "nano, please"]))
+            .prefixes(vec![";", "nano"]))
         .before(|context, message, command_name| {
             info!("{} used command '{}'", message.author.name, command_name);
 

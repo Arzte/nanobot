@@ -265,7 +265,7 @@ command!(user_info(ctx, msg) {
             .map(|c| c.read().unwrap().guild_id);
 
         if let Some(guild_id) = guild_id {
-            // Clone so the cache guard can be dropped ASAP.
+            // Clone so the lock can be dropped ASAP.
             match CACHE.read().unwrap().guilds.get(&guild_id) {
                 Some(guild) => guild.read().unwrap().members.get(&msg.author.id).cloned(),
                 None => None,
@@ -274,27 +274,21 @@ command!(user_info(ctx, msg) {
             None
         }
     };
+    let discriminator = msg.author.discriminator.to_string();
 
     let _ = ctx.send_message(|m| m
         .embed(|mut e| {
             e = e.title(&format!("User info for {}", msg.author.name))
                 .field(|f| f.name("ID").value(&msg.author.id.to_string()))
-                .field(|f| f
-                    .name("Discriminator")
-                    .value(&msg.author.discriminator.to_string()));
+                .field(|f| f.name("Discriminator").value(&discriminator));
 
             if let Some(ref member) = member {
-                e = e
-                    // Pad to create a new row.
-                    .field(|f| f
-                        .name("\u{200b}")
-                        .value("\u{200b}"))
-                    .field(|f| f
-                        .name("Joined at")
-                        .value(&member.joined_at[..19]))
-                    .field(|f| f
-                        .name("Nick")
-                        .value(&member.nick.clone().map_or("\u{200b}".to_owned(), |v| v.clone())));
+                let joined_at = format!("{} UTC", member.joined_at[..19]);
+                let nick = member.nick.clone()
+                    .map_or_else(|| "\u{200b}".to_owned(), |v| v.clone());
+
+                e = e.field(|f| f.name("Joined").value(&joined_at))
+                    .field(|f| f.name("Nick").value(&nick));
 
                 if let Some(colour) = member.colour() {
                     let s = format!("rgb({}, {}, {})",
@@ -302,8 +296,7 @@ command!(user_info(ctx, msg) {
                                     colour.get_g(),
                                     colour.get_b());
 
-                    e = e.colour(colour)
-                        .field(|f| f.name("Colour").value(&s));
+                    e = e.colour(colour).field(|f| f.name("Colour").value(&s));
                 }
             }
 
