@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 use std::env;
 use ::store::{CommandCounter, EventCounter};
 
-command!(commands(ctx, _msg, _args) {
+command!(commands(ctx, msg, _args) {
     let list = {
         let mut s = "Commands used:\n".to_owned();
 
@@ -22,17 +22,17 @@ command!(commands(ctx, _msg, _args) {
         s
     };
 
-    let _ = ctx.say(&list);
+    let _ = msg.channel_id.say(&list);
 });
 
-command!(eval(ctx, message, args) {
+command!(eval(_ctx, msg, args) {
     let query = args.join(" ");
 
     let s = {
         let mut runnable = match File::open("./runnable.rs") {
             Ok(runnable) => runnable,
             Err(_) => {
-                let _ = ctx.say("Err opening runnable");
+                let _ = msg.channel_id.say("Err opening runnable");
 
                 return Ok(());
             },
@@ -42,13 +42,13 @@ command!(eval(ctx, message, args) {
         let _ = runnable.read_to_string(&mut s);
 
 
-        s = s.replace("{CHANNEL_ID}", &message.channel_id.0.to_string())
+        s = s.replace("{CHANNEL_ID}", &msg.channel_id.0.to_string())
             .replace("{CODE}", &query);
 
         s
     };
 
-    let id = message.id.0.to_string();
+    let id = msg.id.0.to_string();
 
     {
         let mut f = File::create(&id).expect("err creating runnable");
@@ -79,7 +79,7 @@ command!(eval(ctx, message, args) {
                     let mut s = String::from_utf8_lossy(&output.stderr).into_owned();
                     s.truncate(500);
 
-                    let _ = ctx.say(&format!("Error running rustc:
+                    let _ = msg.channel_id.say(&format!("Error running rustc:
 ```
 {}
 ```", s));
@@ -90,7 +90,7 @@ command!(eval(ctx, message, args) {
                 info!("end out");
             },
             Err(why) => {
-                let _ = ctx.say(&format!("Error running rustc: {:?}", why));
+                let _ = msg.channel_id.say(&format!("Error running rustc: {:?}", why));
 
                 return Ok(());
             },
@@ -104,7 +104,7 @@ command!(eval(ctx, message, args) {
             let mut out = String::from_utf8_lossy(&output.stdout).into_owned();
             out.truncate(2000 - query.len() - 100);
 
-            let _ = ctx.say(&format!("
+            let _ = msg.channel_id.say(&format!("
 **Exit status**: {}
 **In**:
 ```rs
@@ -116,7 +116,7 @@ command!(eval(ctx, message, args) {
 ```", output.status.code().unwrap_or(1), query, out));
         },
         Err(why) => {
-            let _ = ctx.say(&format!("Err running program: {:?}", why));
+            let _ = msg.channel_id.say(&format!("Err running program: {:?}", why));
         },
     }
 
@@ -124,7 +124,7 @@ command!(eval(ctx, message, args) {
     let _ = fs::remove_file(path);
 });
 
-command!(events(ctx) {
+command!(events(ctx, msg) {
     let list = {
         let mut s = "Events received:\n".to_owned();
 
@@ -138,12 +138,12 @@ command!(events(ctx) {
         s
     };
 
-    let _ = ctx.say(&list);
+    let _ = msg.channel_id.say(&list);
 });
 
-command!(set_name(ctx, message, args) {
+command!(set_name(ctx, msg, args) {
     if args.is_empty() {
-        let _ = message.reply("No name given");
+        let _ = msg.reply("No name given");
 
         return Ok(());
     }
@@ -151,16 +151,16 @@ command!(set_name(ctx, message, args) {
     let name = args.join(" ");
 
     let _ = match ctx.edit_profile(|p| p.username(&name)) {
-        Ok(_) => message.reply(":ok_hand:"),
+        Ok(_) => msg.reply(":ok_hand:"),
         Err(why) => {
             warn!("Err setting name: {:?}", why);
 
-            message.reply(":x: Error editing name")
+            msg.reply(":x: Error editing name")
         },
     };
 });
 
-command!(set_status(ctx, message, args) {
+command!(set_status(ctx, msg, args) {
     let author_id = match env::var("AUTHOR_ID").map(|x| x.parse::<u64>()) {
         Ok(Ok(author_id)) => author_id,
         _ => {
@@ -170,20 +170,20 @@ command!(set_status(ctx, message, args) {
         },
     };
 
-    if message.author.id != author_id {
+    if msg.author.id != author_id {
         return Ok(());
     }
 
     ctx.set_game_name(&args.join(" "));
 });
 
-command!(stats(ctx) {
+command!(stats(_ctx, msg) {
     let processes = match psutil::process::all() {
         Ok(processes) => processes,
         Err(why) => {
             println!("Err getting processes: {:?}", why);
 
-            let _ = ctx.say("Error getting stats");
+            let _ = msg.channel_id.say("Error getting stats");
 
             return Ok(());
         },
@@ -192,7 +192,7 @@ command!(stats(ctx) {
     let process = match processes.iter().find(|p| p.pid == psutil::getpid()) {
         Some(process) => process,
         None => {
-            let _ = ctx.say("Error getting stats");
+            let _ = msg.channel_id.say("Error getting stats");
 
             return Ok(());
         },
@@ -203,7 +203,7 @@ command!(stats(ctx) {
         Err(why) => {
             println!("Err getting process memory: {:?}", why);
 
-            let _ = ctx.say("Error getting stats");
+            let _ = msg.channel_id.say("Error getting stats");
 
             return Ok(());
         },
@@ -216,7 +216,7 @@ command!(stats(ctx) {
     let memory = format!("{}MB/{}MB (RSS/Total)", mem_rss, mem_total);
     let guilds = CACHE.read().unwrap().guilds.len();
 
-    let _ = ctx.send_message(|m|
+    let _ = msg.channel_id.send_message(|m|
         m.embed(|e| e
             .title("Stats")
             .field(|f| f.name("Version").value("0.1.0"))

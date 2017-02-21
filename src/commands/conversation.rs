@@ -1,13 +1,13 @@
 use urbandictionary;
 
-command!(udefine(ctx, _msg, args) {
+command!(udefine(_ctx, msg, args) {
     if args.is_empty() {
-        let _ = ctx.say("No word given");
+        let _ = msg.channel_id.say("No word given");
 
         return Ok(());
     }
 
-    let mut msg = match ctx.say("Searching for definition...") {
+    let mut msg = match msg.channel_id.say("Searching for definition...") {
         Ok(msg) => msg,
         Err(_) => return Ok(()),
     };
@@ -19,7 +19,7 @@ command!(udefine(ctx, _msg, args) {
         Err(why) => {
             warn!("Err retrieving word '{}': {:?}", query, why);
 
-            let _ = ctx.say("Error retrieving definition");
+            let _ = msg.channel_id.say("Error retrieving definition");
 
             return Ok(());
         },

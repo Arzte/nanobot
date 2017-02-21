@@ -111,21 +111,21 @@ fn aestheticize(mut content: String, modifiers: Vec<AestheticMode>)
     Some(content)
 }
 
-command!(aescaps(ctx, _msg, args) {
+command!(aescaps(_ctx, msg, args) {
     let modifiers = vec![AestheticMode::Bold, AestheticMode::Caps];
 
     if let Some(content) = aestheticize(args.join(" "), modifiers) {
-        let _ = ctx.say(&content);
+        let _ = msg.channel_id.say(&content);
     }
 });
 
-command!(aes(ctx, _msg, args) {
+command!(aes(_ctx, msg, args) {
     if let Some(content) = aestheticize(args.join(" "), vec![]) {
-        let _ = ctx.say(&content);
+        let _ = msg.channel_id.say(&content);
     }
 });
 
-command!(hello(ctx) {
+command!(hello(_ctx, msg) {
     static GREETINGS: [&'static str; 3] = [
         "Hey!",
         "Selamat pagi",
@@ -133,12 +133,12 @@ command!(hello(ctx) {
     ];
 
     match rand::thread_rng().choose(&GREETINGS) {
-        Some(greeting) => drop(ctx.say(greeting)),
+        Some(greeting) => drop(msg.channel_id.say(greeting)),
         None => error!("No greeting found"),
     }
 });
 
-command!(mfw(ctx) {
+command!(mfw(_ctx, msg) {
     static EMOJIS: [&'static str; 32] = [
         "blush",
         "cop",
@@ -175,29 +175,29 @@ command!(mfw(ctx) {
     ];
 
     let _ = match rand::thread_rng().choose(&EMOJIS) {
-        Some(emoji) => ctx.say(&format!(":{}:", emoji)),
-        None => ctx.say("Emoji not found"),
+        Some(emoji) => msg.channel_id.say(&format!(":{}:", emoji)),
+        None => msg.channel_id.say("Emoji not found"),
     };
 });
 
-command!(pi(ctx, _msg, args) {
+command!(pi(_ctx, msg, args) {
     let length = match args.first().map(|x| x.parse::<usize>()) {
         Some(Ok(length)) => {
             if length <= 1000 {
                 length + 2
             } else {
-                let _ = ctx.say("Must be at most 1000");
+                let _ = msg.channel_id.say("Must be at most 1000");
 
                 return Ok(());
             }
         },
         Some(Err(_why)) => {
-            let _ = ctx.say("Must be a natural number");
+            let _ = msg.channel_id.say("Must be a natural number");
 
             return Ok(());
         },
         None => 102,
     };
 
-    let _ = ctx.say(&PI[..length]);
+    let _ = msg.channel_id.say(&PI[..length]);
 });

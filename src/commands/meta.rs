@@ -20,7 +20,7 @@ macro_rules! permissions {
     }
 }
 
-command!(avatar(ctx, msg, args) {
+command!(avatar(_ctx, msg, args) {
     let url = if let Some(user) = msg.mentions.first() {
         user.avatar_url()
     } else if let Some(arg) = args.first() {
@@ -32,7 +32,7 @@ command!(avatar(ctx, msg, args) {
         let guild_id = match guild_id {
             Some(guild_id) => guild_id,
             None => {
-                let _ = ctx.say("Could not find server data.");
+                let _ = msg.channel_id.say("Could not find server data.");
 
                 return Ok(());
             },
@@ -46,12 +46,12 @@ command!(avatar(ctx, msg, args) {
         match avatar_url {
             Some(Some(avatar_url)) => avatar_url,
             Some(None) => {
-                let _ = ctx.say("Could not find avatar");
+                let _ = msg.channel_id.say("Could not find avatar");
 
                 return Ok(());
             },
             None => {
-                let _ = ctx.say("Could not find user");
+                let _ = msg.channel_id.say("Could not find user");
 
                 return Ok(());
             },
@@ -61,19 +61,19 @@ command!(avatar(ctx, msg, args) {
     };
 
     let _ = if let Some(url) = url {
-        ctx.say(&url)
+        msg.channel_id.say(&url)
     } else {
-        ctx.say("Could not find avatar")
+        msg.channel_id.say("Could not find avatar")
     };
 });
 
-command!(emoji(ctx, _msg, _args, emoji: EmojiIdentifier) {
-    let _ = ctx.say(&emoji.url());
+command!(emoji(_ctx, msg, _args, emoji: EmojiIdentifier) {
+    let _ = msg.channel_id.say(&emoji.url());
 });
 
-command!(rping(ctx) {
+command!(rping(_ctx, msg) {
     let start = UTC::now();
-    let mut msg = req!(ctx.say("Ping!"));
+    let mut msg = req!(msg.channel_id.say("Ping!"));
 
     let end = UTC::now();
     let ms = {
@@ -87,8 +87,8 @@ command!(rping(ctx) {
     let _ = msg.edit(&format!("Pong! `[{}ms]`", diff), |e| e);
 });
 
-command!(gping(ctx) {
-    let _ = ctx.say(&ctx.shard.lock()
+command!(gping(ctx, msg) {
+    let _ = msg.channel_id.say(&ctx.shard.lock()
         .unwrap()
         .latency()
         .map_or_else(|| "N/A".to_owned(), |s| {
@@ -96,13 +96,13 @@ command!(gping(ctx) {
         }));
 });
 
-command!(role_info(ctx, msg, args) {
+command!(role_info(_ctx, msg, args) {
     let cache = CACHE.read().unwrap();
 
     let guild_id = match cache.get_guild_channel(msg.channel_id) {
         Some(channel) => channel.read().unwrap().guild_id,
         None => {
-            let _ = ctx.say("Error finding channel data");
+            let _ = msg.channel_id.say("Error finding channel data");
 
             return Ok(());
         },
@@ -111,7 +111,7 @@ command!(role_info(ctx, msg, args) {
     let guild = match cache.get_guild(guild_id) {
         Some(guild) => guild,
         None => {
-            let _ = ctx.say("Could not find server data");
+            let _ = msg.channel_id.say("Could not find server data");
 
             return Ok(());
         },
@@ -127,7 +127,7 @@ command!(role_info(ctx, msg, args) {
             None => {
                 warn!("Couldn't find r{} for c{}", id, msg.channel_id);
 
-                let _ = ctx.say("Mentioned role not found; error logged");
+                let _ = msg.channel_id.say("Mentioned role not found; error logged");
 
                 return Ok(());
             },
@@ -141,7 +141,7 @@ command!(role_info(ctx, msg, args) {
                 let id = match role_name.parse::<u64>() {
                     Ok(id) => id,
                     Err(_) => {
-                        let _ = ctx.say("Role not found by name");
+                        let _ = msg.channel_id.say("Role not found by name");
 
                         return Ok(());
                     },
@@ -151,7 +151,7 @@ command!(role_info(ctx, msg, args) {
                     Some(role) => role,
                     None => {
                         warn!("Couldn't find r{} for c{}", id, msg.channel_id);
-                        let _ = ctx.say("Role not found; error logged");
+                        let _ = msg.channel_id.say("Role not found; error logged");
 
                         return Ok(());
                     },
@@ -159,7 +159,7 @@ command!(role_info(ctx, msg, args) {
             },
         }
     } else {
-        let _ = ctx.say("A role name must be given or mentioned");
+        let _ = msg.channel_id.say("A role name must be given or mentioned");
 
         return Ok(());
     };
@@ -206,7 +206,7 @@ command!(role_info(ctx, msg, args) {
     let hoisted = if role.hoist { "Yes" } else { "No" };
     let mentionable = if role.mentionable { "Yes" } else { "No" };
 
-    let _ = ctx.send_message(|m| m
+    let _ = msg.channel_id.send_message(|m| m
         .embed(|e| e
             .title(&format!("Role info for {} ({})", role.name, role.id.0))
             .description(&description)
@@ -216,12 +216,12 @@ command!(role_info(ctx, msg, args) {
             .field(|f| f.name("Mentionable").value(mentionable))));
 });
 
-command!(uptime(ctx) {
+command!(uptime(ctx, msg) {
     let shard_number = {
         match ctx.shard.lock().unwrap().shard_info() {
             Some(shard) => shard[0],
             None => {
-                let _ = ctx.say("Error retrieving shard number");
+                let _ = msg.channel_id.say("Error retrieving shard number");
                 error!("Error retrieving shard count on shard");
 
                 return Ok(());
@@ -245,7 +245,7 @@ command!(uptime(ctx) {
 
     let name = CACHE.read().unwrap().user.name.clone();
 
-    let _ = ctx.send_message(|m| m
+    let _ = msg.channel_id.send_message(|m| m
         .embed(|e| e
             .colour(0x8700B2)
             .title(&format!("Uptime for {}", name))
@@ -257,7 +257,7 @@ command!(uptime(ctx) {
                 .value(&conn))));
 });
 
-command!(user_info(ctx, msg) {
+command!(user_info(_ctx, msg) {
     let member = {
         let guild_id = CACHE.read()
             .unwrap()
@@ -276,14 +276,14 @@ command!(user_info(ctx, msg) {
     };
     let discriminator = msg.author.discriminator.to_string();
 
-    let _ = ctx.send_message(|m| m
+    let _ = msg.channel_id.send_message(|m| m
         .embed(|mut e| {
             e = e.title(&format!("User info for {}", msg.author.name))
                 .field(|f| f.name("ID").value(&msg.author.id.to_string()))
                 .field(|f| f.name("Discriminator").value(&discriminator));
 
             if let Some(ref member) = member {
-                let joined_at = format!("{} UTC", member.joined_at[..19]);
+                let joined_at = format!("{} UTC", &member.joined_at[..19]);
                 let nick = member.nick.clone()
                     .map_or_else(|| "\u{200b}".to_owned(), |v| v.clone());
 
