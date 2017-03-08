@@ -28,7 +28,7 @@ command!(udefine(_ctx, msg, args) {
     let mut definition = match response.definitions.get_mut(0) {
         Some(definition) => definition,
         None => {
-            let _ = msg.edit("No definition found", |e| e);
+            let _ = msg.edit(|m| m.content("No definition found"));
 
             return Ok(());
         },
@@ -42,20 +42,21 @@ command!(udefine(_ctx, msg, args) {
     let url = format!("https://www.urbandictionary.com/author.php?author={}",
                       definition.author);
 
-    let _ = msg.edit("", |e| e
-        .title(&format!("Definition for **{}**", definition.word))
-        .description(&definition.definition)
-        .colour(0x1D2439)
-        .author(|a| a
-            .name(&definition.author)
-            .url(&url.replace(' ', "%20")))
-        .field(|f| f
-            .name("Permalink")
-            .value(&format!("[#{}]({})", definition.id, definition.permalink)))
-        .field(|f| f
-            .name(":+1:")
-            .value(&definition.thumbs_up.to_string()))
-        .field(|f| f
-            .name(":-1:")
-            .value(&definition.thumbs_down.to_string())));
+    let _ = msg.edit(|m| m
+        .embed(|e| e
+            .title(&format!("Definition for **{}**", definition.word))
+            .description(&definition.definition)
+            .colour(0x1D2439)
+            .author(|a| a
+                .name(&definition.author)
+                .url(&url.replace(' ', "%20")))
+            .field(|f| f
+                .name("Permalink")
+                .value(&format!("[#{}]({})", definition.id, definition.permalink)))
+            .field(|f| f
+                .name(":+1:")
+                .value(&definition.thumbs_up.to_string()))
+            .field(|f| f
+                .name(":-1:")
+                .value(&definition.thumbs_down.to_string()))));
 });

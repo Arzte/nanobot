@@ -21,14 +21,14 @@ command!(anime(_ctx, msg, args) {
         Err(why) => {
             warn!("Err getting anime series '{}': {:?}", query, why);
 
-            let _ = msg.edit("Error retrieving listing", |e| e);
+            let _ = msg.edit(|m| m.content("Error retrieving listing"));
 
             return Ok(());
         },
     };
 
     if series_list.is_empty() {
-        let _ = msg.edit("No results found", |e| e);
+        let _ = msg.edit(|m| m.content("No results found"));
 
         return Ok(());
     }
@@ -72,27 +72,28 @@ command!(anime(_ctx, msg, args) {
         AnimeType::TV => "TV",
     };
 
-    let _ = msg.edit("", move |mut e| {
-        e = e.title(&title)
-            .description(&description)
-            .colour(Colour::fabled_pink())
-            .field(|f| f
-                .name("Aired")
-                .value(&aired))
-            .field(|f| f
-                .name("Rating")
-                .value(rating))
-            .field(|f| f
-                .name("Type")
-                .value(series_type))
-            .field(|f| f
-                .name("Episodes")
-                .value(&episodes));
+    let _ = msg.edit(|m| m
+        .embed(move |mut e| {
+            e = e.title(&title)
+                .description(&description)
+                .colour(Colour::fabled_pink())
+                .field(|f| f
+                    .name("Aired")
+                    .value(&aired))
+                .field(|f| f
+                    .name("Rating")
+                    .value(rating))
+                .field(|f| f
+                    .name("Type")
+                    .value(series_type))
+                .field(|f| f
+                    .name("Episodes")
+                    .value(&episodes));
 
-        if let Some(ref thumbnail) = thumbnail {
-            e = e.thumbnail(&thumbnail);
-        }
+            if let Some(ref thumbnail) = thumbnail {
+                e = e.thumbnail(&thumbnail);
+            }
 
-        e
-    });
+            e
+        }));
 });

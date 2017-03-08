@@ -84,7 +84,7 @@ command!(rping(_ctx, msg) {
     };
     let diff = ((end.timestamp() - start.timestamp()) * 1000) + ms;
 
-    let _ = msg.edit(&format!("Pong! `[{}ms]`", diff), |e| e);
+    let _ = msg.edit(|m| m.content(&format!("Pong! `[{}ms]`", diff)));
 });
 
 command!(gping(ctx, msg) {
