@@ -55,7 +55,7 @@ command!(magic_eight_ball(_ctx, msg) {
     ];
 
     let _ = match rand::thread_rng().choose(&answers) {
-        Some(answer) => msg.channel_id.say(&answer),
+        Some(answer) => msg.channel_id.say(answer),
         None => msg.channel_id.say("No answer found"),
     };
 });

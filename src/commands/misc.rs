@@ -86,8 +86,7 @@ enum AestheticMode {
     Caps,
 }
 
-fn aestheticize(mut content: String, modifiers: Vec<AestheticMode>)
-    -> Option<String> {
+fn aestheticize(mut content: String, modifiers: &[AestheticMode]) -> Option<String> {
     if content.is_empty() {
         return None;
     }
@@ -112,15 +111,15 @@ fn aestheticize(mut content: String, modifiers: Vec<AestheticMode>)
 }
 
 command!(aescaps(_ctx, msg, args) {
-    let modifiers = vec![AestheticMode::Bold, AestheticMode::Caps];
+    let modifiers = [AestheticMode::Bold, AestheticMode::Caps];
 
-    if let Some(content) = aestheticize(args.join(" "), modifiers) {
+    if let Some(content) = aestheticize(args.join(" "), &modifiers) {
         let _ = msg.channel_id.say(&content);
     }
 });
 
 command!(aes(_ctx, msg, args) {
-    if let Some(content) = aestheticize(args.join(" "), vec![]) {
+    if let Some(content) = aestheticize(args.join(" "), &[]) {
         let _ = msg.channel_id.say(&content);
     }
 });

@@ -79,7 +79,7 @@ command!(anime(_ctx, msg, args) {
                 .colour(Colour::fabled_pink())
                 .field(|f| f
                     .name("Aired")
-                    .value(&aired))
+                    .value(aired))
                 .field(|f| f
                     .name("Rating")
                     .value(rating))
@@ -91,7 +91,7 @@ command!(anime(_ctx, msg, args) {
                     .value(&episodes));
 
             if let Some(ref thumbnail) = thumbnail {
-                e = e.thumbnail(&thumbnail);
+                e = e.thumbnail(thumbnail);
             }
 
             e
