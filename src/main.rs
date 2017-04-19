@@ -32,10 +32,10 @@ use std::collections::{HashMap, HashSet};
 use store::{CommandCounter, CustomCache, EventCounter, NanoCache, ShardUptime};
 
 fn main() {
-    env_logger::init().expect("env logger");
     dotenv::dotenv().expect("init dotenv");
+    env_logger::init().expect("env logger");
 
-    let mut client = Client::login_bot(&env::var("DISCORD_TOKEN").unwrap());
+    let mut client = Client::login(&env::var("DISCORD_TOKEN").unwrap());
 
     {
         let mut data = client.data.lock().unwrap();

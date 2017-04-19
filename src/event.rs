@@ -13,32 +13,14 @@ macro_rules! reg {
 }
 
 pub fn register(client: &mut Client) {
-    client.on_call_create(|ctx, _| {
-        reg!(ctx "CallCreate");
-    });
-    client.on_call_delete(|ctx, _, _| {
-        reg!(ctx "CallDelete");
-    });
-    client.on_call_update(|ctx, _, _| {
-        reg!(ctx "CallUpdate");
-    });
     client.on_channel_create(|ctx, _| {
         reg!(ctx "ChannelCreate");
     });
     client.on_channel_delete(|ctx, _| {
         reg!(ctx "ChannelDelete");
     });
-    client.on_channel_pins_ack(|ctx, _| {
-        reg!(ctx "ChannelPinsAck");
-    });
     client.on_channel_pins_update(|ctx, _| {
         reg!(ctx "ChannelPinsUpdate");
-    });
-    client.on_friend_suggestion_create(|ctx, _, _| {
-        reg!(ctx "FriendSuggestionCreate");
-    });
-    client.on_friend_suggestion_delete(|ctx, _| {
-        reg!(ctx "FriendSuggestionDelete");
     });
     client.on_guild_create(|ctx, guild| {
         debug!("Received guild: {}", guild.name);
@@ -63,9 +45,6 @@ pub fn register(client: &mut Client) {
     client.on_guild_role_create(|ctx, _, _| {
         reg!(ctx "GuildRoleCreate");
     });
-    client.on_guild_sync(|ctx, _| {
-        reg!(ctx "GuildRoleSync");
-    });
     client.on_guild_unavailable(|ctx, _| {
         reg!(ctx "GuildUnavailable");
     });
@@ -77,9 +56,6 @@ pub fn register(client: &mut Client) {
     });
     client.on_message(|ctx, _| {
         reg!(ctx "MessageCreate");
-    });
-    client.on_message_ack(|ctx, _, _| {
-        reg!(ctx "MessageAck");
     });
     client.on_message_delete(|ctx, _, _| {
         reg!(ctx "MessageDelete");
@@ -113,12 +89,6 @@ pub fn register(client: &mut Client) {
     });
     client.on_recipient_remove(|ctx, _, _| {
         reg!(ctx "ChannelRecipientRemove");
-    });
-    client.on_relationship_add(|ctx, _| {
-        reg!(ctx "RelationshipAdd");
-    });
-    client.on_relationship_remove(|ctx, _, _| {
-        reg!(ctx "RelationshipRemove");
     });
     client.on_resume(|ctx, _| {
         reg!(ctx "Resume");

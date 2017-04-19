@@ -26,7 +26,7 @@ command!(avatar(_ctx, msg, args) {
     } else if let Some(arg) = args.first() {
         let guild_id = CACHE.read()
             .unwrap()
-            .get_guild_channel(msg.channel_id)
+            .guild_channel(msg.channel_id)
             .map(|c| c.read().unwrap().guild_id);
 
         let guild_id = match guild_id {
@@ -40,8 +40,8 @@ command!(avatar(_ctx, msg, args) {
 
         let avatar_url = CACHE.read()
             .unwrap()
-            .get_guild(guild_id)
-            .map(|g| g.read().unwrap().get_member_named(arg).map(|m| m.user.read().unwrap().avatar_url()));
+            .guild(guild_id)
+            .map(|g| g.read().unwrap().member_named(arg).map(|m| m.user.read().unwrap().avatar_url()));
 
         match avatar_url {
             Some(Some(avatar_url)) => avatar_url,
@@ -99,7 +99,7 @@ command!(gping(ctx, msg) {
 command!(role_info(_ctx, msg, args) {
     let cache = CACHE.read().unwrap();
 
-    let guild_id = match cache.get_guild_channel(msg.channel_id) {
+    let guild_id = match cache.guild_channel(msg.channel_id) {
         Some(channel) => channel.read().unwrap().guild_id,
         None => {
             let _ = msg.channel_id.say("Error finding channel data");
@@ -108,7 +108,7 @@ command!(role_info(_ctx, msg, args) {
         },
     };
 
-    let guild = match cache.get_guild(guild_id) {
+    let guild = match cache.guild(guild_id) {
         Some(guild) => guild,
         None => {
             let _ = msg.channel_id.say("Could not find server data");
@@ -261,7 +261,7 @@ command!(user_info(_ctx, msg) {
     let member = {
         let guild_id = CACHE.read()
             .unwrap()
-            .get_guild_channel(msg.channel_id)
+            .guild_channel(msg.channel_id)
             .map(|c| c.read().unwrap().guild_id);
 
         if let Some(guild_id) = guild_id {
@@ -291,10 +291,7 @@ command!(user_info(_ctx, msg) {
                     .field(|f| f.name("Nick").value(&nick));
 
                 if let Some(colour) = member.colour() {
-                    let s = format!("rgb({}, {}, {})",
-                                    colour.get_r(),
-                                    colour.get_g(),
-                                    colour.get_b());
+                    let s = format!("rgb({}, {}, {})", colour.r(), colour.g(), colour.b());
 
                     e = e.colour(colour).field(|f| f.name("Colour").value(&s));
                 }
