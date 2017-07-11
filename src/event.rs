@@ -137,9 +137,9 @@ impl EventHandler for Handler {
                 let entry = uptimes.entry(shard[0]).or_insert_with(Uptime::default);
                 entry.connect();
 
-                format!(";;help [{}/{}]", shard[0] + 1, shard[1])
+                format!("nano help [{}/{}]", shard[0] + 1, shard[1])
             } else {
-                ";;help".to_owned()
+                "nano help".to_owned()
             }
         };
 
