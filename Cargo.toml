@@ -1,7 +1,7 @@
 [package]
 name = "nanobot"
 version = "0.1.0"
-authors = ["Austin Hellyer <hello@austinhellyer.me>"]
+authors = ["Zeyla Hellyer <zey@zey.moe>"]
 
 [dependencies]
 chrono = "0.4"
