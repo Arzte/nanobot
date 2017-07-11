@@ -130,6 +130,11 @@ fn main() {
                 .exec(commands::misc::mfw))
             .command("pi", |c| c
                 .exec(commands::misc::pi)))
+        .command("modping", |c| c
+            .exec(commands::conversation::modping)
+            .guild_only(true)
+            .help_available(false)
+            .known_as("pingmod"))
         .command("commands", |c| c
             .exec(commands::owner::commands)
             .help_available(false)

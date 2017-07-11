@@ -1,4 +1,36 @@
+use serenity::model::permissions::{BAN_MEMBERS, KICK_MEMBERS, MANAGE_MESSAGES};
+use serenity::model::{Guild, Member, Mentionable, OnlineStatus, UserId};
 use urbandictionary::UrbanClient;
+
+command!(modping(_ctx, msg) {
+    let guild = match msg.guild() {
+        Some(guild) => guild,
+        None => return Ok(()),
+    };
+    let guild = guild.read().unwrap();
+
+    if guild.id != 272410239947767808 {
+        return Ok(());
+    }
+
+    let found_mod = find_by_status(&*guild, OnlineStatus::Online)
+        .or_else(|| find_by_status(&*guild, OnlineStatus::DoNotDisturb))
+        .or_else(|| find_by_status(&*guild, OnlineStatus::Idle));
+
+    let chosen_mod = match found_mod {
+        Some(chosen_mod) => chosen_mod.1,
+        None => {
+            let _ = msg.channel_id.say("There are no online mods to ping.");
+
+            return Ok(());
+        },
+    };
+
+    let content = format!("{}, you were pinged for a mod action by **{}**.",
+                          chosen_mod.mention(),
+                          msg.author.tag());
+    let _ = msg.channel_id.say(&content);
+});
 
 command!(udefine(_ctx, msg, args) {
     if args.is_empty() {
@@ -62,3 +94,27 @@ command!(udefine(_ctx, msg, args) {
                 .name(":-1:")
                 .value(&definition.thumbs_down.to_string()))));
 });
+
+fn find_by_status(guild: &Guild, status: OnlineStatus) -> Option<(&UserId, &Member)> {
+    let required_perms = BAN_MEMBERS | KICK_MEMBERS | MANAGE_MESSAGES;
+
+    guild.members.iter().find(|&(user_id, member)| {
+        if member.user.read().unwrap().bot {
+            return false;
+        }
+
+        if let Some(presence) = guild.presences.get(&user_id) {
+            if presence.status != status {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        // Check if the member has at least one of the required permissions.
+        match member.permissions() {
+            Ok(perms) if perms.contains(required_perms) => return true,
+            _ => return false,
+        }
+    })
+}
