@@ -6,7 +6,6 @@ extern crate chrono;
 extern crate dotenv;
 extern crate env_logger;
 extern crate darksky;
-extern crate diesel;
 extern crate hyper;
 extern crate kitsu_io;
 extern crate psutil;
@@ -24,7 +23,6 @@ mod event;
 mod misc;
 mod store;
 
-use misc::Uptime;
 use serenity::client::{Client, rest};
 use serenity::ext::framework::help_commands;
 use std::env;
@@ -35,7 +33,7 @@ fn main() {
     dotenv::dotenv().expect("init dotenv");
     env_logger::init().expect("env logger");
 
-    let mut client = Client::login(&env::var("DISCORD_TOKEN").unwrap());
+    let mut client = Client::new(&env::var("DISCORD_TOKEN").unwrap(), event::Handler);
 
     {
         let mut data = client.data.lock().unwrap();
@@ -63,8 +61,6 @@ fn main() {
 
         set
     };
-
-    event::register(&mut client);
 
     client.with_framework(|f| f
         .configure(|c| c
@@ -159,40 +155,6 @@ fn main() {
             .exec(commands::owner::set_status)
             .help_available(false)
             .owners_only(true)));
-
-    client.on_ready(|context, ready| {
-        if let Some(s) = ready.shard {
-            info!("Logged in as '{}' on {}/{}",
-                  ready.user.name,
-                  s[0],
-                  s[1]);
-        } else {
-            info!("Logged in as '{}'", ready.user.name);
-        }
-
-        let name = {
-            let mut data = context.data.lock().unwrap();
-
-            {
-                let counter = data.get_mut::<EventCounter>().unwrap();
-                let entry = counter.entry("Ready").or_insert(0);
-                *entry += 1;
-            }
-
-            let uptimes = data.get_mut::<ShardUptime>().unwrap();
-
-            if let Some(shard) = ready.shard {
-                let entry = uptimes.entry(shard[0]).or_insert_with(Uptime::default);
-                entry.connect();
-
-                format!(";;help [{}/{}]", shard[0] + 1, shard[1])
-            } else {
-                ";;help".to_owned()
-            }
-        };
-
-        context.set_game_name(&name);
-    });
 
     if let Err(why) = client.start_autosharded() {
         error!("Err starting client: {:?}", why);

@@ -59,7 +59,7 @@ command!(anime(_ctx, msg, args) {
     };
 
     let description = format!("[Kitsu link](https://kitsu.io/anime/{})", series.slug);
-    let title = series.titles.en_jp.unwrap_or(series.titles.ja_jp);
+    let title = series.titles.en_jp.unwrap_or(series.titles.ja_jp.unwrap());
     let thumbnail = series.poster_image.original;
     let aired = &format!("{} - {}", &series.start_date, &series.end_date.as_ref().map_or("N/A", |v| &v[..]));
     let episodes = series.episode_count.map_or_else(|| "N/A".to_owned(), |x| x.to_string());

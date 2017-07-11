@@ -4,20 +4,19 @@ version = "0.1.0"
 authors = ["Austin Hellyer <hello@austinhellyer.me>"]
 
 [dependencies]
-chrono = "0.2"
-dotenv = "0.8"
-env_logger = "0.3"
-darksky = "0.5"
-diesel = "0.8"
-hyper = ">= 0.8"
+chrono = "0.4"
+dotenv = "0.9"
+env_logger = "0.4"
+darksky = { git = "https://github.com/zeyla/darksky.rs" }
+hyper = "0.10"
 kitsu_io = { git = "https://github.com/zeyla/kitsu.rs" }
-lazy_static = "0.1"
+lazy_static = "0.2"
 log = "0.3"
-psutil = "1.0"
+psutil = "1.1"
 rand = "0.3"
-regex = "0.1"
-serde_json = "0.8"
-serde = "0.8"
-serenity = { git = "https://github.com/zeyla/serenity.git" }
+regex = "0.2"
+serde_json = "1.0"
+serde = "1.0"
+serenity = { git = "https://github.com/zeyla/serenity" }
 typemap = "0.3"
-urbandictionary = "0.1"
+urbandictionary = { git = "https://github.com/zeyla/urbandictionary.rs" }

@@ -1,4 +1,4 @@
-use chrono::UTC;
+use chrono::Utc;
 use serenity::client::CACHE;
 use serenity::model::EmojiIdentifier;
 use std::u64;
@@ -72,10 +72,10 @@ command!(emoji(_ctx, msg, _args, emoji: EmojiIdentifier) {
 });
 
 command!(rping(_ctx, msg) {
-    let start = UTC::now();
+    let start = Utc::now();
     let mut msg = req!(msg.channel_id.say("Ping!"));
 
-    let end = UTC::now();
+    let end = Utc::now();
     let ms = {
         let end_ms = end.timestamp_subsec_millis() as i64;
         let start_ms = start.timestamp_subsec_millis() as i64;
@@ -217,17 +217,7 @@ command!(role_info(_ctx, msg, args) {
 });
 
 command!(uptime(ctx, msg) {
-    let shard_number = {
-        match ctx.shard.lock().unwrap().shard_info() {
-            Some(shard) => shard[0],
-            None => {
-                let _ = msg.channel_id.say("Error retrieving shard number");
-                error!("Error retrieving shard count on shard");
-
-                return Ok(());
-            },
-        }
-    };
+    let shard_number = ctx.shard.lock().unwrap().shard_info()[0];
 
     let (boot, conn) = {
         let data = ctx.data.lock().unwrap();
@@ -283,12 +273,16 @@ command!(user_info(_ctx, msg) {
                 .field(|f| f.name("Discriminator").value(&discriminator));
 
             if let Some(ref member) = member {
-                let joined_at = format!("{} UTC", &member.joined_at[..19]);
+                if let Some(joined_at) = member.joined_at {
+                    let formatted = format!("{} UTC", &joined_at.to_rfc3339()[..19]);
+
+                    e = e.field(|f| f.name("Joined").value(&formatted));
+                }
+
                 let nick = member.nick.clone()
                     .map_or_else(|| "\u{200b}".to_owned(), |v| v.clone());
 
-                e = e.field(|f| f.name("Joined").value(&joined_at))
-                    .field(|f| f.name("Nick").value(&nick));
+                e = e.field(|f| f.name("Nick").value(&nick));
 
                 if let Some(colour) = member.colour() {
                     let s = format!("rgb({}, {}, {})", colour.r(), colour.g(), colour.b());

@@ -1,4 +1,4 @@
-use urbandictionary;
+use urbandictionary::UrbanClient;
 
 command!(udefine(_ctx, msg, args) {
     if args.is_empty() {
@@ -14,7 +14,9 @@ command!(udefine(_ctx, msg, args) {
 
     let query = args.join(" ");
 
-    let mut response = match urbandictionary::definitions(&query[..]) {
+    let client = UrbanClient::new();
+
+    let mut response = match client.definitions(&query[..]) {
         Ok(response) => response,
         Err(why) => {
             warn!("Err retrieving word '{}': {:?}", query, why);

@@ -14,28 +14,28 @@
 // OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
-use chrono::{DateTime, UTC};
+use chrono::{DateTime, Utc};
 use std::default::Default;
 
 #[derive(Debug)]
 pub struct Uptime {
     /// Unix timestamp of when the program itself started
-    pub boot: DateTime<UTC>,
+    pub boot: DateTime<Utc>,
     /// Unix timestamp of when the current connection was made. This should
     /// probably _technically_ be an Option, _but_ a user will never be able to
     /// request the uptime if there is no connection, so it's okay.
-    pub connection: DateTime<UTC>,
+    pub connection: DateTime<Utc>,
 }
 
 impl Uptime {
     pub fn connect(&mut self) {
-        self.connection = UTC::now();
+        self.connection = Utc::now();
     }
 }
 
 impl Default for Uptime {
     fn default() -> Uptime {
-        let now = UTC::now();
+        let now = Utc::now();
 
         Uptime {
             boot: now,
