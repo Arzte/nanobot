@@ -2,7 +2,9 @@ use serde_json::Value;
 use serenity::client::{Context, EventHandler};
 use serenity::model::event::*;
 use serenity::model::*;
+use serenity::CACHE;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::{Arc, RwLock};
 use super::misc::Uptime;
 use super::store::{EventCounter, ShardUptime};
@@ -54,6 +56,81 @@ impl EventHandler for Handler {
 
     fn on_guild_member_removal(&self, ctx: Context, _: GuildId, _: User, _: Option<Member>) {
         reg!(ctx "GuildMemberRemoval");
+    }
+
+    fn on_guild_member_update(&self, ctx: Context, old: Option<Member>, new: Member) {
+        reg!(ctx "GuildMemberUpdate");
+
+        if new.guild_id != 272410239947767808 {
+            return;
+        }
+
+        {
+            let cache = CACHE.read().unwrap();
+            let guild = cache.guild(new.guild_id).unwrap();
+            let reader = guild.read().unwrap();
+
+            // Check if the primary bot is offline. If it isn't, don't do
+            // anything.
+            //
+            // This acts as a backup.
+            match reader.presences.get(&UserId(145584102551060480)) {
+                Some(presence) if presence.status != OnlineStatus::Offline => {
+                    return;
+                }
+                _ => {},
+            }
+        }
+
+        let role_ids = [
+            RoleId(285375674443759617),
+            RoleId(301828565085716480),
+            RoleId(301781206347939841),
+            RoleId(301781366155247616),
+        ];
+
+        let added_ids = new.roles
+            .iter()
+            .filter(|id| !old.as_ref().map(|old| old.roles.contains(&id)).unwrap_or(false))
+            .filter(|id| role_ids.contains(*id))
+            .collect::<Vec<&RoleId>>();
+        let removed_ids = old.as_ref().map(|old| old.roles
+            .iter()
+            .filter(|id| !new.roles.contains(&id))
+            .filter(|id| role_ids.contains(id))
+            .collect()).unwrap_or_else(Vec::default);
+
+        if added_ids.is_empty() && removed_ids.is_empty() {
+            return;
+        }
+
+        let mut content = {
+            let user = new.user.read().unwrap();
+
+            format!("<@87164639695110144>\n```diff\n{} ({})\n", user.tag(), user.id)
+        };
+
+        {
+            let cache = CACHE.read().unwrap();
+            let guild = cache.guild(new.guild_id).unwrap();
+            let reader = guild.read().unwrap();
+
+            for role_id in added_ids {
+                let role = reader.roles.get(role_id).unwrap();
+
+                let _ = write!(content, "+ {} ({})\n", role.name, role.id);
+            }
+
+            for role_id in removed_ids {
+                let role = reader.roles.get(role_id).unwrap();
+
+                let _ = write!(content, "- {} ({})\n", role.name, role.id);
+            }
+        }
+
+        content.push_str("\n```");
+
+        let _ = ChannelId(301717945854197760).say(&content);
     }
 
     fn on_guild_members_chunk(&self, ctx: Context, _: GuildId, _: HashMap<UserId, Member>) {
