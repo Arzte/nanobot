@@ -1,5 +1,6 @@
 use serenity::model::permissions::{BAN_MEMBERS, KICK_MEMBERS, MANAGE_MESSAGES};
-use serenity::model::{Guild, Member, Mentionable, OnlineStatus, UserId};
+use serenity::model::{Guild, Member, Mentionable, OnlineStatus};
+use rand::{self, Rng};
 use urbandictionary::UrbanClient;
 
 command!(modping(_ctx, msg) {
@@ -9,7 +10,7 @@ command!(modping(_ctx, msg) {
     };
     let guild = guild.read().unwrap();
 
-    if guild.id != 272410239947767808 {
+    if guild.id != 272410239947767808 && guild.id != 244567637332328449 {
         return Ok(());
     }
 
@@ -18,7 +19,7 @@ command!(modping(_ctx, msg) {
         .or_else(|| find_by_status(&*guild, OnlineStatus::Idle));
 
     let chosen_mod = match found_mod {
-        Some(chosen_mod) => chosen_mod.1,
+        Some(chosen_mod) => chosen_mod,
         None => {
             let _ = msg.channel_id.say("There are no online mods to ping.");
 
@@ -95,10 +96,10 @@ command!(udefine(_ctx, msg, args) {
                 .value(&definition.thumbs_down.to_string()))));
 });
 
-fn find_by_status(guild: &Guild, status: OnlineStatus) -> Option<(&UserId, &Member)> {
+fn find_by_status(guild: &Guild, status: OnlineStatus) -> Option<&Member> {
     let required_perms = BAN_MEMBERS | KICK_MEMBERS | MANAGE_MESSAGES;
 
-    guild.members.iter().find(|&(user_id, member)| {
+    let mut members = guild.members.iter().filter(|&(user_id, member)| {
         if member.user.read().unwrap().bot {
             return false;
         }
@@ -117,4 +118,14 @@ fn find_by_status(guild: &Guild, status: OnlineStatus) -> Option<(&UserId, &Memb
             _ => return false,
         }
     })
+        .map(|x| x.1)
+        .collect::<Vec<_>>();
+
+    rand::thread_rng().shuffle(&mut members[..]);
+
+    if members.is_empty() {
+        None
+    } else {
+        Some(members.remove(0))
+    }
 }
