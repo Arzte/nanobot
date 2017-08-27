@@ -65,23 +65,6 @@ impl EventHandler for Handler {
             return;
         }
 
-        {
-            let cache = CACHE.read().unwrap();
-            let guild = cache.guild(new.guild_id).unwrap();
-            let reader = guild.read().unwrap();
-
-            // Check if the primary bot is offline. If it isn't, don't do
-            // anything.
-            //
-            // This acts as a backup.
-            match reader.presences.get(&UserId(145584102551060480)) {
-                Some(presence) if presence.status != OnlineStatus::Offline => {
-                    return;
-                }
-                _ => {},
-            }
-        }
-
         let role_ids = [
             RoleId(285375674443759617),
             RoleId(301828565085716480),
