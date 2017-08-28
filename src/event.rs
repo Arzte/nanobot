@@ -12,7 +12,7 @@ use super::store::{EventCounter, ShardUptime};
 macro_rules! reg {
     ($ctx:ident $name:expr) => {
         {
-            let mut data = $ctx.data.lock().unwrap();
+           let mut data = $ctx.data.lock();
             let counter = data.get_mut::<EventCounter>().unwrap();
             let entry = counter.entry($name).or_insert(0);
             *entry += 1;
@@ -183,7 +183,7 @@ impl EventHandler for Handler {
         }
 
         let name = {
-            let mut data = ctx.data.lock().unwrap();
+            let mut data = ctx.data.lock();
 
             {
                 let counter = data.get_mut::<EventCounter>().unwrap();

@@ -24,7 +24,7 @@ mod misc;
 mod store;
 
 use serenity::client::{Client, rest};
-use serenity::ext::framework::help_commands;
+use serenity::framework::standard::{StandardFramework, help_commands};
 use std::env;
 use std::collections::{HashMap, HashSet};
 use store::{CommandCounter, CustomCache, EventCounter, NanoCache, ShardUptime};
@@ -36,7 +36,7 @@ fn main() {
     let mut client = Client::new(&env::var("DISCORD_TOKEN").unwrap(), event::Handler);
 
     {
-        let mut data = client.data.lock().unwrap();
+        let mut data = client.data.lock();
         data.insert::<CommandCounter>(HashMap::default());
         data.insert::<EventCounter>(HashMap::default());
         data.insert::<NanoCache>(CustomCache::default());
@@ -52,7 +52,7 @@ fn main() {
         };
 
         {
-            let mut data = client.data.lock().unwrap();
+            let mut data = client.data.lock();
             let custom_cache = data.get_mut::<NanoCache>().unwrap();
             custom_cache.owner_id = info.owner.id;
         }
@@ -62,7 +62,7 @@ fn main() {
         set
     };
 
-    client.with_framework(|f| f
+    client.with_framework(StandardFramework::new()
         .configure(|c| c
             .allow_whitespace(true)
             .on_mention(true)
@@ -71,9 +71,9 @@ fn main() {
         .before(|context, message, command_name| {
             info!("{} used command '{}'", message.author.name, command_name);
 
-            let mut data = context.data.lock().unwrap();
+            let mut data = context.data.lock();
             let counter = data.get_mut::<CommandCounter>().unwrap();
-            let entry = counter.entry(command_name.clone()).or_insert(0);
+            let entry = counter.entry(command_name.to_owned()).or_insert(0);
             *entry += 1;
 
             true
@@ -98,8 +98,6 @@ fn main() {
         .group("Meta", |g| g
             .command("avatar", |c| c
                 .exec(commands::meta::avatar))
-            .command("emoji", |c| c
-                .exec(commands::meta::emoji))
             .command("rping", |c| c
                 .exec(commands::meta::rping)
                 .help_available(false)
@@ -142,8 +140,7 @@ fn main() {
         .command("eval", |c| c
             .exec(commands::owner::eval)
             .help_available(false)
-            .owners_only(true)
-            .use_quotes(false))
+            .owners_only(true))
         .command("stats", |c| c
             .exec(commands::owner::stats)
             .help_available(false)

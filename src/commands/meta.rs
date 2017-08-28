@@ -1,6 +1,5 @@
 use chrono::Utc;
 use serenity::client::CACHE;
-use serenity::model::EmojiIdentifier;
 use std::u64;
 use ::store::ShardUptime;
 
@@ -67,10 +66,6 @@ command!(avatar(_ctx, msg, args) {
     };
 });
 
-command!(emoji(_ctx, msg, _args, emoji: EmojiIdentifier) {
-    let _ = msg.channel_id.say(&emoji.url());
-});
-
 command!(rping(_ctx, msg) {
     let start = Utc::now();
     let mut msg = req!(msg.channel_id.say("Ping!"));
@@ -89,7 +84,6 @@ command!(rping(_ctx, msg) {
 
 command!(gping(ctx, msg) {
     let _ = msg.channel_id.say(&ctx.shard.lock()
-        .unwrap()
         .latency()
         .map_or_else(|| "N/A".to_owned(), |s| {
             format!("{}.{}s", s.as_secs(), s.subsec_nanos())
@@ -217,10 +211,10 @@ command!(role_info(_ctx, msg, args) {
 });
 
 command!(uptime(ctx, msg) {
-    let shard_number = ctx.shard.lock().unwrap().shard_info()[0];
+    let shard_number = ctx.shard.lock().shard_info()[0];
 
     let (boot, conn) = {
-        let data = ctx.data.lock().unwrap();
+        let data = ctx.data.lock();
         let uptimes = data.get::<ShardUptime>().unwrap();
 
         if let Some(entry) = uptimes.get(&shard_number) {

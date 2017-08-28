@@ -12,7 +12,7 @@ command!(commands(ctx, msg, _args) {
     let list = {
         let mut s = "Commands used:\n".to_owned();
 
-        let data = ctx.data.lock().unwrap();
+        let data = ctx.data.lock();
         let counter = data.get::<CommandCounter>().unwrap();
 
         for (k, v) in counter.iter().collect::<BTreeMap<_, _>>() {
@@ -128,7 +128,7 @@ command!(events(ctx, msg) {
     let list = {
         let mut s = "Events received:\n".to_owned();
 
-        let data = ctx.data.lock().unwrap();
+        let data = ctx.data.lock();
         let counter = data.get::<EventCounter>().unwrap();
 
         for (k, v) in counter.iter().collect::<BTreeMap<_, _>>() {
