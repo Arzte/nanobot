@@ -50,8 +50,21 @@ impl EventHandler for Handler {
         reg!(ctx "GuildIntegrationsUpdate");
     }
 
-    fn on_guild_member_addition(&self, ctx: Context, _: GuildId, _: Member) {
+    fn on_guild_member_addition(&self, ctx: Context, guild_id: GuildId, member: Member) {
         reg!(ctx "GuildMemberAdd");
+
+        if guild_id.0 != 272410239947767808 {
+            return;
+        }
+
+        let user_id = member.user.read().unwrap().id;
+
+        let diff = match role_diff(member.guild_id, user_id, Vec::new(), member.roles) {
+            Some(diff) => diff,
+            None => return,
+        };
+
+        let _ = ChannelId(301717945854197760).say(&diff);
     }
 
     fn on_guild_member_removal(&self, ctx: Context, _: GuildId, _: User, _: Option<Member>) {
@@ -65,55 +78,15 @@ impl EventHandler for Handler {
             return;
         }
 
-        let role_ids = [
-            RoleId(285375674443759617),
-            RoleId(301828565085716480),
-            RoleId(301781206347939841),
-            RoleId(301781366155247616),
-        ];
+        let user_id = new.user.read().unwrap().id;
+        let old_role_ids = old.map(|old| old.roles).unwrap_or_default();
 
-        let added_ids = new.roles
-            .iter()
-            .filter(|id| !old.as_ref().map(|old| old.roles.contains(&id)).unwrap_or(false))
-            .filter(|id| role_ids.contains(*id))
-            .collect::<Vec<&RoleId>>();
-        let removed_ids = old.as_ref().map(|old| old.roles
-            .iter()
-            .filter(|id| !new.roles.contains(&id))
-            .filter(|id| role_ids.contains(id))
-            .collect()).unwrap_or_else(Vec::default);
-
-        if added_ids.is_empty() && removed_ids.is_empty() {
-            return;
-        }
-
-        let mut content = {
-            let user = new.user.read().unwrap();
-
-            format!("<@87164639695110144>\n```diff\n{} ({})\n", user.tag(), user.id)
+        let diff = match role_diff(new.guild_id, user_id, old_role_ids, new.roles) {
+            Some(diff) => diff,
+            None => return,
         };
 
-        {
-            let cache = CACHE.read().unwrap();
-            let guild = cache.guild(new.guild_id).unwrap();
-            let reader = guild.read().unwrap();
-
-            for role_id in added_ids {
-                let role = reader.roles.get(role_id).unwrap();
-
-                let _ = write!(content, "+ {} ({})\n", role.name, role.id);
-            }
-
-            for role_id in removed_ids {
-                let role = reader.roles.get(role_id).unwrap();
-
-                let _ = write!(content, "- {} ({})\n", role.name, role.id);
-            }
-        }
-
-        content.push_str("\n```");
-
-        let _ = ChannelId(301717945854197760).say(&content);
+        let _ = ChannelId(301717945854197760).say(&diff);
     }
 
     fn on_guild_members_chunk(&self, ctx: Context, _: GuildId, _: HashMap<UserId, Member>) {
@@ -229,4 +202,58 @@ impl EventHandler for Handler {
     fn on_webhook_update(&self, ctx: Context, _: GuildId, _: ChannelId) {
         reg!(ctx "WebhookUpdate");
     }
+}
+
+fn role_diff(guild_id: GuildId, user_id: UserId, old_roles: Vec<RoleId>, new_roles: Vec<RoleId>) -> Option<String> {
+    let role_ids = [
+        RoleId(285375674443759617),
+        RoleId(301828565085716480),
+        RoleId(301781206347939841),
+        RoleId(301781366155247616),
+    ];
+
+    let added_ids = new_roles
+        .iter()
+        .filter(|id| !old_roles.contains(&id))
+        .filter(|id| role_ids.contains(*id))
+        .collect::<Vec<&RoleId>>();
+    let removed_ids = old_roles
+        .iter()
+        .filter(|id| !new_roles.contains(&id))
+        .filter(|id| role_ids.contains(id))
+        .collect::<Vec<&RoleId>>();
+
+    if added_ids.is_empty() && removed_ids.is_empty() {
+        return None;
+    }
+
+    let cache = CACHE.read().unwrap();
+
+    let mut content = {
+        let found = cache.user(user_id).unwrap();
+        let user = found.read().unwrap();
+
+        format!("<@87164639695110144>\n```diff\n{} ({})\n", user.tag(), user.id)
+    };
+
+    {
+        let guild = cache.guild(guild_id).unwrap();
+        let reader = guild.read().unwrap();
+
+        for role_id in added_ids {
+            let role = reader.roles.get(role_id).unwrap();
+
+            let _ = write!(content, "+ {} ({})\n", role.name, role.id);
+        }
+
+        for role_id in removed_ids {
+            let role = reader.roles.get(role_id).unwrap();
+
+            let _ = write!(content, "- {} ({})\n", role.name, role.id);
+        }
+    }
+
+    content.push_str("\n```");
+
+    Some(content)
 }
