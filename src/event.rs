@@ -253,7 +253,7 @@ fn role_diff(guild_id: GuildId, user_id: UserId, old_roles: Vec<RoleId>, new_rol
         }
     }
 
-    content.push_str("\n```");
+    content.push_str("```");
 
     Some(content)
 }
