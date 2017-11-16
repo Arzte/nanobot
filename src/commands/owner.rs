@@ -214,12 +214,12 @@ command!(stats(_ctx, msg) {
     let mem_total = memory.size / B_TO_MB;
     let mem_rss = memory.resident / B_TO_MB;
     let memory = format!("{}MB/{}MB (RSS/Total)", mem_rss, mem_total);
-    let guilds = CACHE.read().unwrap().guilds.len();
+    let guilds = CACHE.read().guilds.len();
 
     let _ = msg.channel_id.send_message(|m|
         m.embed(|e| e
             .title("Stats")
-            .field(|f| f.name("Version").value("0.1.0"))
-            .field(|f| f.name("Guilds").value(&guilds.to_string()))
-            .field(|f| f.name("Memory Used").value(&memory))));
+            .field("Version", "0.1.0", true)
+            .field("Guilds", &guilds.to_string(), true)
+            .field("Memory Used", &memory, true)));
 });

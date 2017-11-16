@@ -24,9 +24,8 @@ command!(avatar(_ctx, msg, args) {
         user.avatar_url()
     } else if let Some(arg) = args.first() {
         let guild_id = CACHE.read()
-            .unwrap()
             .guild_channel(msg.channel_id)
-            .map(|c| c.read().unwrap().guild_id);
+            .map(|c| c.read().guild_id);
 
         let guild_id = match guild_id {
             Some(guild_id) => guild_id,
@@ -38,9 +37,8 @@ command!(avatar(_ctx, msg, args) {
         };
 
         let avatar_url = CACHE.read()
-            .unwrap()
             .guild(guild_id)
-            .map(|g| g.read().unwrap().member_named(arg).map(|m| m.user.read().unwrap().avatar_url()));
+            .map(|g| g.read().member_named(arg).map(|m| m.user.read().avatar_url()));
 
         match avatar_url {
             Some(Some(avatar_url)) => avatar_url,
@@ -82,19 +80,15 @@ command!(rping(_ctx, msg) {
     let _ = msg.edit(|m| m.content(&format!("Pong! `[{}ms]`", diff)));
 });
 
-command!(gping(ctx, msg) {
-    let _ = msg.channel_id.say(&ctx.shard.lock()
-        .latency()
-        .map_or_else(|| "N/A".to_owned(), |s| {
-            format!("{}.{}s", s.as_secs(), s.subsec_nanos())
-        }));
+command!(gping(_ctx, msg) {
+    let _ = msg.channel_id.say("N/A");
 });
 
 command!(role_info(_ctx, msg, args) {
-    let cache = CACHE.read().unwrap();
+    let cache = CACHE.read();
 
     let guild_id = match cache.guild_channel(msg.channel_id) {
-        Some(channel) => channel.read().unwrap().guild_id,
+        Some(channel) => channel.read().guild_id,
         None => {
             let _ = msg.channel_id.say("Error finding channel data");
 
@@ -116,7 +110,7 @@ command!(role_info(_ctx, msg, args) {
     let role = if !msg.mention_roles.is_empty() {
         let id = unsafe { msg.mention_roles.get_unchecked(0) };
 
-        match guild.read().unwrap().roles.values().find(|r| r.id == *id).cloned() {
+        match guild.read().roles.values().find(|r| r.id == *id).cloned() {
             Some(role) => role,
             None => {
                 warn!("Couldn't find r{} for c{}", id, msg.channel_id);
@@ -129,7 +123,7 @@ command!(role_info(_ctx, msg, args) {
     } else if !args.is_empty() {
         let role_name = args.join(" ");
 
-        match guild.read().unwrap().roles.values().find(|r| r.name == role_name).cloned() {
+        match guild.read().roles.values().find(|r| r.name == role_name).cloned() {
             Some(role) => role,
             None => {
                 let id = match role_name.parse::<u64>() {
@@ -141,7 +135,7 @@ command!(role_info(_ctx, msg, args) {
                     },
                 };
 
-                match guild.read().unwrap().roles.values().find(|r| r.id == id).cloned() {
+                match guild.read().roles.values().find(|r| r.id == id).cloned() {
                     Some(role) => role,
                     None => {
                         warn!("Couldn't find r{} for c{}", id, msg.channel_id);
@@ -205,19 +199,17 @@ command!(role_info(_ctx, msg, args) {
             .title(&format!("Role info for {} ({})", role.name, role.id.0))
             .description(&description)
             .colour(role.colour)
-            .field(|f| f.name("Hoisted").value(hoisted))
-            .field(|f| f.name("Position").value(&role.position.to_string()))
-            .field(|f| f.name("Mentionable").value(mentionable))));
+            .field("Hoisted", hoisted, true)
+            .field("Position", &role.position.to_string(), true)
+            .field("Mentionable", mentionable, true)));
 });
 
 command!(uptime(ctx, msg) {
-    let shard_number = ctx.shard.lock().shard_info()[0];
-
     let (boot, conn) = {
         let data = ctx.data.lock();
         let uptimes = data.get::<ShardUptime>().unwrap();
 
-        if let Some(entry) = uptimes.get(&shard_number) {
+        if let Some(entry) = uptimes.get(&ctx.shard_id) {
             let boot = entry.boot.to_rfc3339()[..19].to_owned();
             let conn = entry.connection.to_rfc3339()[..19].to_owned();
 
@@ -227,31 +219,26 @@ command!(uptime(ctx, msg) {
         }
     };
 
-    let name = CACHE.read().unwrap().user.name.clone();
+    let name = CACHE.read().user.name.clone();
 
     let _ = msg.channel_id.send_message(|m| m
         .embed(|e| e
             .colour(0x8700B2)
             .title(&format!("Uptime for {}", name))
-            .field(|f| f
-                .name("Since Boot")
-                .value(&boot))
-            .field(|f| f
-                .name("Current Connection")
-                .value(&conn))));
+            .field("Since Boot", &boot, true)
+            .field("Current Connection", &conn, true)));
 });
 
 command!(user_info(_ctx, msg) {
     let member = {
         let guild_id = CACHE.read()
-            .unwrap()
             .guild_channel(msg.channel_id)
-            .map(|c| c.read().unwrap().guild_id);
+            .map(|c| c.read().guild_id);
 
         if let Some(guild_id) = guild_id {
             // Clone so the lock can be dropped ASAP.
-            match CACHE.read().unwrap().guilds.get(&guild_id) {
-                Some(guild) => guild.read().unwrap().members.get(&msg.author.id).cloned(),
+            match CACHE.read().guilds.get(&guild_id) {
+                Some(guild) => guild.read().members.get(&msg.author.id).cloned(),
                 None => None,
             }
         } else {
@@ -263,25 +250,25 @@ command!(user_info(_ctx, msg) {
     let _ = msg.channel_id.send_message(|m| m
         .embed(|mut e| {
             e = e.title(&format!("User info for {}", msg.author.name))
-                .field(|f| f.name("ID").value(&msg.author.id.to_string()))
-                .field(|f| f.name("Discriminator").value(&discriminator));
+                .field("ID", &msg.author.id.to_string(), true)
+                .field("Discriminator", &discriminator, true);
 
             if let Some(ref member) = member {
                 if let Some(joined_at) = member.joined_at {
                     let formatted = format!("{} UTC", &joined_at.to_rfc3339()[..19]);
 
-                    e = e.field(|f| f.name("Joined").value(&formatted));
+                    e = e.field("Joined", &formatted, true);
                 }
 
                 let nick = member.nick.clone()
                     .map_or_else(|| "\u{200b}".to_owned(), |v| v.clone());
 
-                e = e.field(|f| f.name("Nick").value(&nick));
+                e = e.field("Nick", &nick, true);
 
                 if let Some(colour) = member.colour() {
                     let s = format!("rgb({}, {}, {})", colour.r(), colour.g(), colour.b());
 
-                    e = e.colour(colour).field(|f| f.name("Colour").value(&s));
+                    e = e.colour(colour).field("Colour", &s, true);
                 }
             }
 

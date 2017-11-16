@@ -77,18 +77,10 @@ command!(anime(_ctx, msg, args) {
             e = e.title(&title)
                 .description(&description)
                 .colour(Colour::fabled_pink())
-                .field(|f| f
-                    .name("Aired")
-                    .value(aired))
-                .field(|f| f
-                    .name("Rating")
-                    .value(rating))
-                .field(|f| f
-                    .name("Type")
-                    .value(series_type))
-                .field(|f| f
-                    .name("Episodes")
-                    .value(&episodes));
+                .field("Aired", aired, true)
+                .field("Rating", rating, true)
+                .field("Type", series_type, true)
+                .field("Episodes", &episodes, true);
 
             if let Some(ref thumbnail) = thumbnail {
                 e = e.thumbnail(thumbnail);

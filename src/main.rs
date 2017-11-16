@@ -33,7 +33,10 @@ fn main() {
     dotenv::dotenv().expect("init dotenv");
     env_logger::init().expect("env logger");
 
-    let mut client = Client::new(&env::var("DISCORD_TOKEN").unwrap(), event::Handler);
+    let mut client = Client::new(
+        &env::var("DISCORD_TOKEN").expect("no token present"),
+        event::Handler
+    ).expect("error creating client");
 
     {
         let mut data = client.data.lock();

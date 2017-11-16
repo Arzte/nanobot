@@ -2,10 +2,11 @@ use serde_json::Value;
 use serenity::client::{Context, EventHandler};
 use serenity::model::event::*;
 use serenity::model::*;
+use serenity::prelude::RwLock;
 use serenity::CACHE;
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use super::misc::Uptime;
 use super::store::{EventCounter, ShardUptime};
 
@@ -23,41 +24,41 @@ macro_rules! reg {
 pub struct Handler;
 
 impl EventHandler for Handler {
-    fn on_channel_create(&self, ctx: Context, _: Arc<RwLock<GuildChannel>>) {
+    fn channel_create(&self, ctx: Context, _: Arc<RwLock<GuildChannel>>) {
         reg!(ctx "ChannelCreate");
     }
 
-    fn on_channel_delete(&self, ctx: Context, _: Arc<RwLock<GuildChannel>>) {
+    fn channel_delete(&self, ctx: Context, _: Arc<RwLock<GuildChannel>>) {
         reg!(ctx "ChannelDelete");
     }
 
-    fn on_channel_pins_update(&self, ctx: Context, _: ChannelPinsUpdateEvent) {
+    fn channel_pins_update(&self, ctx: Context, _: ChannelPinsUpdateEvent) {
         reg!(ctx "ChannelPinsUpdate");
     }
 
-    fn on_guild_create(&self, ctx: Context, guild: Guild, new: bool) {
+    fn guild_create(&self, ctx: Context, guild: Guild, new: bool) {
         let status = if new { "new" } else { "old" };
         debug!("Received guild: {} ({})", guild.name, status);
 
         reg!(ctx "GuildCreate");
     }
 
-    fn on_guild_emojis_update(&self, ctx: Context, _: GuildId, _: HashMap<EmojiId, Emoji>) {
+    fn guild_emojis_update(&self, ctx: Context, _: GuildId, _: HashMap<EmojiId, Emoji>) {
         reg!(ctx "GuildEmojisUpdate");
     }
 
-    fn on_guild_integrations_update(&self, ctx: Context, _: GuildId) {
+    fn guild_integrations_update(&self, ctx: Context, _: GuildId) {
         reg!(ctx "GuildIntegrationsUpdate");
     }
 
-    fn on_guild_member_addition(&self, ctx: Context, guild_id: GuildId, member: Member) {
+    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, member: Member) {
         reg!(ctx "GuildMemberAdd");
 
         if guild_id.0 != 272410239947767808 {
             return;
         }
 
-        let user_id = member.user.read().unwrap().id;
+        let user_id = member.user.read().id;
 
         let diff = match role_diff(member.guild_id, user_id, Vec::new(), member.roles) {
             Some(diff) => diff,
@@ -67,18 +68,18 @@ impl EventHandler for Handler {
         let _ = ChannelId(301717945854197760).say(&diff);
     }
 
-    fn on_guild_member_removal(&self, ctx: Context, _: GuildId, _: User, _: Option<Member>) {
+    fn guild_member_removal(&self, ctx: Context, _: GuildId, _: User, _: Option<Member>) {
         reg!(ctx "GuildMemberRemoval");
     }
 
-    fn on_guild_member_update(&self, ctx: Context, old: Option<Member>, new: Member) {
+    fn guild_member_update(&self, ctx: Context, old: Option<Member>, new: Member) {
         reg!(ctx "GuildMemberUpdate");
 
         if new.guild_id != 272410239947767808 {
             return;
         }
 
-        let user_id = new.user.read().unwrap().id;
+        let user_id = new.user.read().id;
         let old_role_ids = old.map(|old| old.roles).unwrap_or_default();
 
         let diff = match role_diff(new.guild_id, user_id, old_role_ids, new.roles) {
@@ -89,63 +90,63 @@ impl EventHandler for Handler {
         let _ = ChannelId(301717945854197760).say(&diff);
     }
 
-    fn on_guild_members_chunk(&self, ctx: Context, _: GuildId, _: HashMap<UserId, Member>) {
+    fn guild_members_chunk(&self, ctx: Context, _: GuildId, _: HashMap<UserId, Member>) {
         reg!(ctx "GuildMembersChunk");
     }
 
-    fn on_guild_role_create(&self, ctx: Context, _: GuildId, _: Role) {
+    fn guild_role_create(&self, ctx: Context, _: GuildId, _: Role) {
         reg!(ctx "GuildRoleCreate");
     }
 
-    fn on_guild_unavailable(&self, ctx: Context, _: GuildId) {
+    fn guild_unavailable(&self, ctx: Context, _: GuildId) {
         reg!(ctx "GuildUnavailable");
     }
 
-    fn on_guild_ban_addition(&self, ctx: Context, _: GuildId, _: User) {
+    fn guild_ban_addition(&self, ctx: Context, _: GuildId, _: User) {
         reg!(ctx "GuildBanAddition");
     }
 
-    fn on_guild_ban_removal(&self, ctx: Context, _: GuildId, _: User) {
+    fn guild_ban_removal(&self, ctx: Context, _: GuildId, _: User) {
         reg!(ctx "GuildBanRemoval");
     }
 
-    fn on_message(&self, ctx: Context, _: Message) {
+    fn message(&self, ctx: Context, _: Message) {
         reg!(ctx "MessageCreate");
     }
 
-    fn on_message_delete(&self, ctx: Context, _: ChannelId, _: MessageId) {
+    fn message_delete(&self, ctx: Context, _: ChannelId, _: MessageId) {
         reg!(ctx "MessageDelete");
     }
 
-    fn on_message_delete_bulk(&self, ctx: Context, _: ChannelId, _: Vec<MessageId>) {
+    fn message_delete_bulk(&self, ctx: Context, _: ChannelId, _: Vec<MessageId>) {
         reg!(ctx "MessageDeleteBulk");
     }
 
-    fn on_message_update(&self, ctx: Context, _: MessageUpdateEvent) {
+    fn message_update(&self, ctx: Context, _: MessageUpdateEvent) {
         reg!(ctx "MessageUpdate");
     }
 
-    fn on_presence_replace(&self, ctx: Context, _: Vec<Presence>) {
+    fn presence_replace(&self, ctx: Context, _: Vec<Presence>) {
         reg!(ctx "PresencesReplace");
     }
 
-    fn on_presence_update(&self, ctx: Context, _: PresenceUpdateEvent) {
+    fn presence_update(&self, ctx: Context, _: PresenceUpdateEvent) {
         reg!(ctx "PresenceUpdate");
     }
 
-    fn on_reaction_add(&self, ctx: Context, _: Reaction) {
+    fn reaction_add(&self, ctx: Context, _: Reaction) {
         reg!(ctx "ReactionAdd");
     }
 
-    fn on_reaction_remove(&self, ctx: Context, _: Reaction) {
+    fn reaction_remove(&self, ctx: Context, _: Reaction) {
         reg!(ctx "ReactionRemove");
     }
 
-    fn on_reaction_remove_all(&self, ctx: Context, _: ChannelId, _: MessageId) {
+    fn reaction_remove_all(&self, ctx: Context, _: ChannelId, _: MessageId) {
         reg!(ctx "ReactionRemoveAll");
     }
 
-    fn on_ready(&self, ctx: Context, ready: Ready) {
+    fn ready(&self, ctx: Context, ready: Ready) {
         if let Some(s) = ready.shard {
             info!("Logged in as '{}' on {}/{}",
                   ready.user.name,
@@ -179,27 +180,27 @@ impl EventHandler for Handler {
         ctx.set_game_name(&name);
     }
 
-    fn on_resume(&self, ctx: Context, _: ResumedEvent) {
+    fn resume(&self, ctx: Context, _: ResumedEvent) {
         reg!(ctx "Resume");
     }
 
-    fn on_typing_start(&self, ctx: Context, _: TypingStartEvent) {
+    fn typing_start(&self, ctx: Context, _: TypingStartEvent) {
         reg!(ctx "TypingStart");
     }
 
-    fn on_unknown(&self, _: Context, name: String, value: Value) {
+    fn unknown(&self, _: Context, name: String, value: Value) {
         warn!("Received unknown event '{}': {:?}", name, value);
     }
 
-    fn on_voice_server_update(&self, ctx: Context, _: VoiceServerUpdateEvent) {
+    fn voice_server_update(&self, ctx: Context, _: VoiceServerUpdateEvent) {
         reg!(ctx "VoiceServerUpdate");
     }
 
-    fn on_voice_state_update(&self, ctx: Context, _: Option<GuildId>, _: VoiceState) {
+    fn voice_state_update(&self, ctx: Context, _: Option<GuildId>, _: VoiceState) {
         reg!(ctx "VoiceStateUpdate");
     }
 
-    fn on_webhook_update(&self, ctx: Context, _: GuildId, _: ChannelId) {
+    fn webhook_update(&self, ctx: Context, _: GuildId, _: ChannelId) {
         reg!(ctx "WebhookUpdate");
     }
 }
@@ -227,18 +228,18 @@ fn role_diff(guild_id: GuildId, user_id: UserId, old_roles: Vec<RoleId>, new_rol
         return None;
     }
 
-    let cache = CACHE.read().unwrap();
+    let cache = CACHE.read();
 
     let mut content = {
         let found = cache.user(user_id).unwrap();
-        let user = found.read().unwrap();
+        let user = found.read();
 
         format!("<@87164639695110144>\n```diff\n{} ({})\n", user.tag(), user.id)
     };
 
     {
         let guild = cache.guild(guild_id).unwrap();
-        let reader = guild.read().unwrap();
+        let reader = guild.read();
 
         for role_id in added_ids {
             let role = reader.roles.get(role_id).unwrap();

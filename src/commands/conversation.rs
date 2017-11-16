@@ -1,4 +1,4 @@
-use serenity::model::permissions::{BAN_MEMBERS, KICK_MEMBERS, MANAGE_MESSAGES};
+use serenity::model::Permissions;
 use serenity::model::{Guild, Member, Mentionable, OnlineStatus};
 use rand::{self, Rng};
 use urbandictionary::UrbanClient;
@@ -8,7 +8,7 @@ command!(modping(_ctx, msg) {
         Some(guild) => guild,
         None => return Ok(()),
     };
-    let guild = guild.read().unwrap();
+    let guild = guild.read();
 
     if guild.id != 272410239947767808 && guild.id != 244567637332328449 {
         return Ok(());
@@ -85,22 +85,18 @@ command!(udefine(_ctx, msg, args) {
             .author(|a| a
                 .name(&definition.author)
                 .url(&url.replace(' ', "%20")))
-            .field(|f| f
-                .name("Permalink")
-                .value(&format!("[#{}]({})", definition.id, definition.permalink)))
-            .field(|f| f
-                .name(":+1:")
-                .value(&definition.thumbs_up.to_string()))
-            .field(|f| f
-                .name(":-1:")
-                .value(&definition.thumbs_down.to_string()))));
+            .field("Permalink", &format!("[#{}]({})", definition.id, definition.permalink), true)
+            .field(":+1:", &definition.thumbs_up.to_string(), true)
+            .field(":-1:", &definition.thumbs_down.to_string(), true)));
 });
 
 fn find_by_status(guild: &Guild, status: OnlineStatus) -> Option<&Member> {
-    let required_perms = BAN_MEMBERS | KICK_MEMBERS | MANAGE_MESSAGES;
+    let required_perms = Permissions::BAN_MEMBERS
+        | Permissions::KICK_MEMBERS
+        | Permissions::MANAGE_MESSAGES;
 
     let mut members = guild.members.iter().filter(|&(user_id, member)| {
-        if member.user.read().unwrap().bot {
+        if member.user.read().bot {
             return false;
         }
 
