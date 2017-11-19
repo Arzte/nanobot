@@ -51,21 +51,25 @@ impl EventHandler for Handler {
         reg!(ctx "GuildIntegrationsUpdate");
     }
 
-    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, member: Member) {
+    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, mut member: Member) {
         reg!(ctx "GuildMemberAdd");
 
-        if guild_id.0 != 272410239947767808 {
+        if guild_id == 272410239947767808 {
+            let user_id = member.user.read().id;
+
+            let diff = match role_diff(member.guild_id, user_id, Vec::new(), member.roles) {
+                Some(diff) => diff,
+                None => return,
+            };
+
+            let _ = ChannelId(301717945854197760).say(&diff);
+
             return;
+        } else if guild_id == 381880193251409931 {
+            if let Err(why) = member.add_role(381891844067557378) {
+                error!("Error adding role to {:?}: {:?}", member, why);
+            }
         }
-
-        let user_id = member.user.read().id;
-
-        let diff = match role_diff(member.guild_id, user_id, Vec::new(), member.roles) {
-            Some(diff) => diff,
-            None => return,
-        };
-
-        let _ = ChannelId(301717945854197760).say(&diff);
     }
 
     fn guild_member_removal(&self, ctx: Context, _: GuildId, _: User, _: Option<Member>) {
