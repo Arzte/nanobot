@@ -66,7 +66,13 @@ impl EventHandler for Handler {
 
             return;
         } else if guild_id == 381880193251409931 {
-            if let Err(why) = member.add_role(381891844067557378) {
+            let role_id = if member.user.read().bot {
+                381891974615269376
+            } else {
+                381891844067557378
+            };
+
+            if let Err(why) = member.add_role(role_id) {
                 error!("Error adding role to {:?}: {:?}", member, why);
             }
         }
