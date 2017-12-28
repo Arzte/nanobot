@@ -1,4 +1,4 @@
-use serenity::model::UserId;
+use serenity::model::id::UserId;
 use std::collections::HashMap;
 use typemap::Key;
 use ::misc::Uptime;

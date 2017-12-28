@@ -1,4 +1,5 @@
 use rand::{self, Rng};
+use ::prelude::*;
 
 static AESTHETIC_CHARS: [(char, &'static str); 58] = [
     ('A', "Ａ"),
@@ -110,93 +111,119 @@ fn aestheticize(mut content: String, modifiers: &[AestheticMode]) -> Option<Stri
     Some(content)
 }
 
-command!(aescaps(_ctx, msg, args) {
-    let modifiers = [AestheticMode::Bold, AestheticMode::Caps];
 
-    if let Some(content) = aestheticize(args.join(" "), &modifiers) {
-        let _ = msg.channel_id.say(&content);
+pub struct AesCapsCommand;
+
+impl Command for AesCapsCommand {
+    fn execute(&self, _: &mut Context, msg: &Message, args: Args) -> CommandResult {
+        let modifiers = [AestheticMode::Bold, AestheticMode::Caps];
+
+        if let Some(content) = aestheticize(args.full().to_owned(), &modifiers) {
+            let _ = msg.channel_id.say(&content);
+        }
+
+        Ok(())
     }
-});
+}
 
-command!(aes(_ctx, msg, args) {
-    if let Some(content) = aestheticize(args.join(" "), &[]) {
-        let _ = msg.channel_id.say(&content);
+pub struct AesCommand;
+
+impl Command for AesCommand {
+    fn execute(&self, _: &mut Context, msg: &Message, args: Args) -> CommandResult {
+        if let Some(content) = aestheticize(args.full().to_owned(), &[]) {
+            let _ = msg.channel_id.say(&content);
+        }
+
+        Ok(())
     }
-});
+}
 
-command!(hello(_ctx, msg) {
-    static GREETINGS: [&'static str; 3] = [
-        "Hey!",
-        "Selamat pagi",
-        "G'day!",
-    ];
+pub struct HelloCommand;
 
-    match rand::thread_rng().choose(&GREETINGS) {
-        Some(greeting) => drop(msg.channel_id.say(greeting)),
-        None => error!("No greeting found"),
+impl Command for HelloCommand {
+    fn execute(&self, _: &mut Context, msg: &Message, _: Args) -> CommandResult {
+        static GREETINGS: [&'static str; 3] = [
+            "Hey!",
+            "Selamat pagi",
+            "G'day!",
+        ];
+
+        match rand::thread_rng().choose(&GREETINGS) {
+            Some(greeting) => drop(msg.channel_id.say(greeting)),
+            None => error!("No greeting found"),
+        }
+
+        Ok(())
     }
-});
+}
 
-command!(mfw(_ctx, msg) {
-    static EMOJIS: [&'static str; 32] = [
-        "blush",
-        "cop",
-        "cry",
-        "disappointed",
-        "dizzy",
-        "fearful",
-        "flushed",
-        "frowning",
-        "grimacing",
-        "grin",
-        "heart_eyes",
-        "innocent",
-        "kissing",
-        "kissing_closed_eyes",
-        "laughing",
-        "man_with_turban",
-        "neutral_face",
-        "open_mouth",
-        "poop",
-        "rage",
-        "relaxed",
-        "scream",
-        "sleeping",
-        "smile",
-        "smiley",
-        "smirk",
-        "stuck_out_tongue",
-        "stuck_out_tongue_closed_eyes",
-        "stuck_out_tongue_winking_eye",
-        "weary",
-        "wink",
-        "yum",
-    ];
+pub struct MfwCommand;
 
-    let _ = match rand::thread_rng().choose(&EMOJIS) {
-        Some(emoji) => msg.channel_id.say(&format!(":{}:", emoji)),
-        None => msg.channel_id.say("Emoji not found"),
-    };
-});
+impl Command for MfwCommand {
+    fn execute(&self, _: &mut Context, msg: &Message, _: Args) -> CommandResult {
+        static EMOJIS: [&'static str; 32] = [
+            "blush",
+            "cop",
+            "cry",
+            "disappointed",
+            "dizzy",
+            "fearful",
+            "flushed",
+            "frowning",
+            "grimacing",
+            "grin",
+            "heart_eyes",
+            "innocent",
+            "kissing",
+            "kissing_closed_eyes",
+            "laughing",
+            "man_with_turban",
+            "neutral_face",
+            "open_mouth",
+            "poop",
+            "rage",
+            "relaxed",
+            "scream",
+            "sleeping",
+            "smile",
+            "smiley",
+            "smirk",
+            "stuck_out_tongue",
+            "stuck_out_tongue_closed_eyes",
+            "stuck_out_tongue_winking_eye",
+            "weary",
+            "wink",
+            "yum",
+        ];
 
-command!(pi(_ctx, msg, args) {
-    let length = match args.first().map(|x| x.parse::<usize>()) {
-        Some(Ok(length)) => {
-            if length <= 1000 {
-                length + 2
-            } else {
-                let _ = msg.channel_id.say("Must be at most 1000");
+        let _ = match rand::thread_rng().choose(&EMOJIS) {
+            Some(emoji) => msg.channel_id.say(&format!(":{}:", emoji)),
+            None => msg.channel_id.say("Emoji not found"),
+        };
 
-                return Ok(());
-            }
-        },
-        Some(Err(_why)) => {
-            let _ = msg.channel_id.say("Must be a natural number");
+        Ok(())
+    }
+}
 
-            return Ok(());
-        },
-        None => 102,
-    };
+pub struct PiCommand;
 
-    let _ = msg.channel_id.say(&PI[..length]);
-});
+impl Command for PiCommand {
+    fn execute(&self, _: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+        let length = match args.single::<usize>() {
+            Ok(length) => {
+                if length <= 1000 {
+                    length + 2
+                } else {
+                    let _ = msg.channel_id.say("Must be at most 1000");
+
+                    return Ok(());
+                }
+            },
+            Err(_) => 102,
+        };
+
+        let _ = msg.channel_id.say(&PI[..length]);
+
+        Ok(())
+    }
+}

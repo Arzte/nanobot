@@ -1,6 +1,5 @@
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
-#[macro_use] extern crate serenity;
 
 extern crate chrono;
 extern crate dotenv;
@@ -11,8 +10,10 @@ extern crate kitsu_io;
 extern crate psutil;
 extern crate rand;
 extern crate regex;
+extern crate reqwest;
 extern crate serde_json;
 extern crate serde;
+extern crate serenity;
 extern crate typemap;
 extern crate urbandictionary;
 
@@ -21,6 +22,7 @@ extern crate urbandictionary;
 mod commands;
 mod event;
 mod misc;
+mod prelude;
 mod store;
 
 use serenity::client::{Client, rest};
@@ -81,83 +83,83 @@ fn main() {
 
             true
         })
-        .command("help", |c| c.exec_help(help_commands::with_embeds))
-        .on("udefine", commands::conversation::udefine)
+        .command("udefined", |c| c.cmd(commands::conversation::UdefineCommand))
+        .help(help_commands::with_embeds)
         .group("Luck", |g| g
             .command("8ball", |c| c
-                .exec(commands::random::magic_eight_ball))
+                .cmd(commands::random::MagicEightBallCommand))
             .command("choose", |c| c
-                .exec(commands::random::choose))
+                .cmd(commands::random::ChooseCommand))
             .command("coinflip", |c| c
-                .exec(commands::random::coinflip))
+                .cmd(commands::random::CoinflipCommand))
             .command("roll", |c| c
-                .exec(commands::random::roll))
+                .cmd(commands::random::RollCommand))
             .command("roulette", |c| c
-                .exec(commands::random::roulette)))
+                .cmd(commands::random::RouletteCommand)))
         .group("Media", |g| g
             .command("anime", |c| c
                 .known_as("animu")
-                .exec(commands::media::anime)))
+                .cmd(commands::media::AnimeCommand)))
         .group("Meta", |g| g
             .command("avatar", |c| c
-                .exec(commands::meta::avatar))
+                .cmd(commands::meta::AvatarCommand))
             .command("rping", |c| c
-                .exec(commands::meta::rping)
+                .cmd(commands::meta::RpingCommand)
                 .help_available(false)
                 .owners_only(true))
             .command("gping", |c| c
-                .exec(commands::meta::gping)
+                .cmd(commands::meta::GpingCommand)
                 .help_available(false)
                 .owners_only(true))
             .command("roleinfo", |c| c
-                .exec(commands::meta::role_info))
+                .cmd(commands::meta::RoleInfoCommand))
             .command("uptime", |c| c
-                .exec(commands::meta::uptime))
+                .cmd(commands::meta::UptimeCommand))
             .command("userinfo", |c| c
                 .known_as("me")
-                .exec(commands::meta::user_info)))
+                .cmd(commands::meta::UserInfoCommand)))
         .group("Misc", |g| g
             .command("aes", |c| c
-                .exec(commands::misc::aes))
+                .cmd(commands::misc::AesCommand))
             .command("aescaps", |c| c
-                .exec(commands::misc::aescaps))
+                .cmd(commands::misc::AesCapsCommand))
             .command("aesthetic", |c| c
-                .exec(commands::misc::aes))
+                .cmd(commands::misc::AesCommand))
             .command("aestheticcaps", |c| c
-                .exec(commands::misc::aescaps))
+                .cmd(commands::misc::AesCapsCommand))
             .command("hello", |c| c
-                .exec(commands::misc::hello))
+                .cmd(commands::misc::HelloCommand))
             .command("mfw", |c| c
-                .exec(commands::misc::mfw))
+                .cmd(commands::misc::MfwCommand))
             .command("pi", |c| c
-                .exec(commands::misc::pi)))
+                .cmd(commands::misc::PiCommand)))
         .command("modping", |c| c
-            .exec(commands::conversation::modping)
+            .cmd(commands::conversation::ModPingCommand)
             .guild_only(true)
             .help_available(false)
             .known_as("pingmod"))
         .command("commands", |c| c
-            .exec(commands::owner::commands)
+            .cmd(commands::owner::CommandsCommand)
             .help_available(false)
             .owners_only(true))
         .command("eval", |c| c
-            .exec(commands::owner::eval)
+            .cmd(commands::owner::EvalCommand)
             .help_available(false)
             .owners_only(true))
         .command("stats", |c| c
-            .exec(commands::owner::stats)
+            .cmd(commands::owner::StatsCommand)
             .help_available(false)
             .owners_only(true))
         .command("events", |c| c
-            .exec(commands::owner::events)
+            .cmd(commands::owner::EventsCommand)
             .help_available(false)
             .owners_only(true))
         .command("set name", |c| c
-            .exec(commands::owner::set_name)
+            .cmd(commands::owner::SetNameCommand)
             .help_available(false)
             .owners_only(true))
         .command("set status", |c| c
-            .exec(commands::owner::set_status)
+            .cmd(commands::owner::SetStatusCommand)
             .help_available(false)
             .owners_only(true)));
 
