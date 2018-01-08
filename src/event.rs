@@ -1,7 +1,6 @@
 use serde_json::Value;
 use serenity::client::{Context, EventHandler};
-use serenity::model::event::*;
-use serenity::model::*;
+use serenity::model::prelude::*;
 use serenity::prelude::RwLock;
 use serenity::CACHE;
 use std::collections::HashMap;
@@ -20,6 +19,21 @@ macro_rules! reg {
         }
     }
 }
+
+pub const GUILD_DABBOT_ID: u64 = 272410239947767808;
+pub const GUILD_DABBOT_ROLE_STAFF_ID: RoleId = RoleId(325307197666099200);
+#[allow(dead_code)]
+pub const GUILD_ROLE_ONLINE_COLOUR: u32 = 0x43_B581;
+pub const GUILD_ROLE_ONLINE_ID: RoleId = RoleId(395998395803893761);
+#[allow(dead_code)]
+pub const GUILD_ROLE_IDLE_COLOUR: u32 = 0xFA_A61A;
+pub const GUILD_ROLE_IDLE_ID: RoleId = RoleId(395998774390161411);
+#[allow(dead_code)]
+pub const GUILD_ROLE_OFFLINE_COLOUR: u32 = 0x74_7F8D;
+pub const GUILD_ROLE_OFFLINE_ID: RoleId = RoleId(395998775748984832);
+#[allow(dead_code)]
+pub const GUILD_ROLE_DND_COLOUR: u32 = 0xF0_4747;
+pub const GUILD_ROLE_DND_ID: RoleId = RoleId(395998771776847882);
 
 pub struct Handler;
 
@@ -54,7 +68,7 @@ impl EventHandler for Handler {
     fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, mut member: Member) {
         reg!(ctx "GuildMemberAdd");
 
-        if guild_id == 272410239947767808 {
+        if guild_id == GUILD_DABBOT_ID {
             let user_id = member.user.read().id;
 
             let diff = match role_diff(member.guild_id, user_id, Vec::new(), member.roles) {
@@ -85,7 +99,7 @@ impl EventHandler for Handler {
     fn guild_member_update(&self, ctx: Context, old: Option<Member>, new: Member) {
         reg!(ctx "GuildMemberUpdate");
 
-        if new.guild_id != 272410239947767808 {
+        if new.guild_id != GUILD_DABBOT_ID {
             return;
         }
 
@@ -140,8 +154,61 @@ impl EventHandler for Handler {
         reg!(ctx "PresencesReplace");
     }
 
-    fn presence_update(&self, ctx: Context, _: PresenceUpdateEvent) {
+    fn presence_update(&self, ctx: Context, event: PresenceUpdateEvent) {
         reg!(ctx "PresenceUpdate");
+
+        let guild_id = match event.guild_id {
+            Some(guild_id) if guild_id == GUILD_DABBOT_ID => guild_id,
+            _ => return,
+        };
+
+        let roles = match event.roles {
+            Some(roles) => roles,
+            None => return,
+        };
+
+        if !roles.contains(&GUILD_DABBOT_ROLE_STAFF_ID) {
+            return;
+        }
+
+        let mut member = {
+            let guild = match guild_id.find() {
+                Some(guild) => guild,
+                None => return,
+            };
+            let guild = guild.read();
+
+            match guild.member(event.presence.user_id) {
+                Ok(member) => member,
+                Err(_) => return,
+            }
+        };
+
+        if !member.roles.contains(&GUILD_DABBOT_ROLE_STAFF_ID) {
+            return;
+        }
+
+        let give = match event.presence.status {
+            OnlineStatus::DoNotDisturb => GUILD_ROLE_DND_ID,
+            OnlineStatus::Idle => GUILD_ROLE_IDLE_ID,
+            OnlineStatus::Invisible | OnlineStatus::Offline => GUILD_ROLE_OFFLINE_ID,
+            OnlineStatus::Online => GUILD_ROLE_ONLINE_ID,
+        };
+
+        let roles = [
+            GUILD_ROLE_DND_ID,
+            GUILD_ROLE_IDLE_ID,
+            GUILD_ROLE_OFFLINE_ID,
+            GUILD_ROLE_ONLINE_ID,
+        ];
+
+        for role in roles.iter() {
+            member.roles.retain(|r| r != role);
+        }
+
+        if let Err(why) = member.add_roles(&[give]) {
+            warn!("Err updating member roles: {:?}", why);
+        }
     }
 
     fn reaction_add(&self, ctx: Context, _: Reaction) {
